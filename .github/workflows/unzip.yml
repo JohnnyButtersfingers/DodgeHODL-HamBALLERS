@@ -86,9 +86,15 @@ jobs:
               echo "✅ Successfully extracted: $zip_basename"
               EXTRACTED_FILES="$EXTRACTED_FILES\n- $zip_basename"
               
+              # Clean up macOS metadata files that might have been extracted
+              find "$parent_dir" -name "__MACOSX" -type d -exec rm -rf {} + 2>/dev/null || true
+              find "$parent_dir" -name "._*" -type f -delete 2>/dev/null || true
+              find "$parent_dir" -name ".DS_Store" -type f -delete 2>/dev/null || true
+              
               # Remove the original ZIP file
               rm "$zip_file"
               echo "🗑️  Removed original ZIP file: $zip_basename"
+              echo "🧹 Cleaned up macOS metadata files"
             else
               echo "❌ Error: Failed to extract $zip_basename"
               ERROR_COUNT=$((ERROR_COUNT + 1))
