@@ -1,0 +1,174 @@
+name: Extract ZIP Files
+
+on:
+  push:
+    paths:
+      - '**.zip'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force extraction even if no ZIP files detected'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  extract-zip-files:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        echo "✅ Git configuration completed"
+    
+    - name: Find ZIP files
+      id: find-zips
+      run: |
+        echo "🔍 Searching for ZIP files..."
+        ZIP_FILES=$(find . -name "*.zip" -type f | grep -v ".git" | sort)
+        
+        if [ -z "$ZIP_FILES" ]; then
+          echo "⚠️  No ZIP files found in the repository"
+          echo "found=false" >> $GITHUB_OUTPUT
+          echo "zip_files=" >> $GITHUB_OUTPUT
+        else
+          echo "✅ Found ZIP files:"
+          echo "$ZIP_FILES"
+          echo "found=true" >> $GITHUB_OUTPUT
+          # Convert newlines to spaces for output
+          echo "zip_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$ZIP_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Extract ZIP files
+      if: steps.find-zips.outputs.found == 'true' || github.event.inputs.force == 'true'
+      run: |
+        if [ "${{ steps.find-zips.outputs.found }}" == "false" ] && [ "${{ github.event.inputs.force }}" == "true" ]; then
+          echo "⚠️  Force extraction enabled but no ZIP files found - skipping extraction"
+          exit 0
+        fi
+        
+        echo "🚀 Starting ZIP file extraction..."
+        EXTRACTED_FILES=""
+        ERROR_COUNT=0
+        
+        while IFS= read -r zip_file; do
+          if [ -n "$zip_file" ]; then
+            echo "📦 Processing: $zip_file"
+            
+            # Get the parent directory of the ZIP file
+            parent_dir=$(dirname "$zip_file")
+            zip_basename=$(basename "$zip_file")
+            
+            # Check if ZIP file is valid
+            if ! unzip -t "$zip_file" >/dev/null 2>&1; then
+              echo "❌ Error: $zip_file is not a valid ZIP file"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+              continue
+            fi
+            
+            # Extract to parent directory
+            echo "📂 Extracting to: $parent_dir"
+            if unzip -o "$zip_file" -d "$parent_dir"; then
+              echo "✅ Successfully extracted: $zip_basename"
+              EXTRACTED_FILES="$EXTRACTED_FILES\n- $zip_basename"
+              
+              # Remove the original ZIP file
+              rm "$zip_file"
+              echo "🗑️  Removed original ZIP file: $zip_basename"
+            else
+              echo "❌ Error: Failed to extract $zip_basename"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+          fi
+        done <<< "${{ steps.find-zips.outputs.zip_files }}"
+        
+        if [ $ERROR_COUNT -gt 0 ]; then
+          echo "⚠️  Completed with $ERROR_COUNT errors"
+        else
+          echo "✅ All ZIP files processed successfully"
+        fi
+        
+        echo "EXTRACTED_FILES<<EOF" >> $GITHUB_ENV
+        echo -e "$EXTRACTED_FILES" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+        echo "ERROR_COUNT=$ERROR_COUNT" >> $GITHUB_ENV
+    
+    - name: Check for changes
+      id: check-changes
+      run: |
+        echo "🔍 Checking for changes in repository..."
+        
+        # Add all changes to staging
+        git add .
+        
+        # Check if there are any changes to commit
+        if git diff --cached --quiet; then
+          echo "ℹ️  No changes to commit"
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "✅ Changes detected, ready to commit"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          
+          # Show what changed
+          echo "📋 Changes to be committed:"
+          git diff --cached --name-status
+        fi
+    
+    - name: Commit and push changes
+      if: steps.check-changes.outputs.has_changes == 'true'
+      run: |
+        echo "💾 Committing extracted files..."
+        
+        # Create commit message
+        COMMIT_MSG="Extract ZIP files automatically
+        
+        Extracted files from ZIP archives:$EXTRACTED_FILES
+        
+        This commit was created automatically by the unzip workflow."
+        
+        # Commit changes
+        git commit -m "$COMMIT_MSG"
+        
+        # Push changes
+        echo "🚀 Pushing changes to repository..."
+        git push origin HEAD
+        
+        echo "✅ Successfully committed and pushed extracted files"
+    
+    - name: Summary
+      run: |
+        echo "📊 Extraction Summary:"
+        echo "===================="
+        
+        if [ "${{ steps.find-zips.outputs.found }}" == "true" ]; then
+          echo "✅ ZIP files found and processed"
+          if [ "${{ env.ERROR_COUNT }}" -gt 0 ]; then
+            echo "⚠️  Errors encountered: ${{ env.ERROR_COUNT }}"
+          else
+            echo "✅ All extractions successful"
+          fi
+        else
+          echo "ℹ️  No ZIP files found in repository"
+        fi
+        
+        if [ "${{ steps.check-changes.outputs.has_changes }}" == "true" ]; then
+          echo "✅ Changes committed and pushed"
+        else
+          echo "ℹ️  No changes to commit"
+        fi
+        
+        echo "🏁 Workflow completed"
