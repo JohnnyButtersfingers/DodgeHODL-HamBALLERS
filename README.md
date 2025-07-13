@@ -83,3 +83,13 @@ Marketing Focus: Community-driven (X lore memes, AMAs, replays contests); avoid 
 
 
 
+
+## 🐢 Offline Development Setup
+If your environment blocks internet access (for example, in Codex containers) you can install dependencies using a pre-populated pnpm store.
+
+1. On a machine with internet access run `pnpm install:all` to populate `pnpm-store/`.
+2. Copy that directory to your offline environment.
+3. Run `./scripts/setup-offline.sh` to install packages using the local store.
+
+After dependencies are installed you can run `pnpm test:all` to execute all tests without network access.
+

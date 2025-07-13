@@ -1,0 +1,42 @@
+{
+  "name": "hamballer-xyz",
+  "version": "1.0.0",
+  "description": "HamBaller.xyz - Web3 Game Hub with DODGE & HODL",
+  "private": true,
+  "packageManager": "pnpm@8.10.0",
+  "workspaces": [
+    "contracts",
+    "backend", 
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "pnpm install",
+    "build:all": "pnpm run -r build",
+    "test:all": "pnpm run -r test",
+    "dev:contracts": "pnpm --filter @hamballer/contracts run node",
+    "dev:backend": "pnpm --filter @hamballer/backend run dev",
+    "dev:frontend": "pnpm --filter @hamballer/frontend run dev",
+    "deploy:contracts": "pnpm --filter @hamballer/contracts run deploy:production",
+    "deploy:prepare": "./deploy.sh",
+    "test:integration": "./test-integration.sh",
+    "start:dev": "concurrently \"pnpm dev:backend\" \"pnpm dev:frontend\"",
+    "clean": "pnpm run -r clean"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "web3",
+    "game",
+    "blockchain",
+    "nft",
+    "defi",
+    "abstract"
+  ],
+  "author": "HamBaller Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hamballer/hamballer-xyz"
+  }
+}

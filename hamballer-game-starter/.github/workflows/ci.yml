@@ -1,0 +1,68 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'pnpm'
+    
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+    
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+    
+    - name: Run contract tests
+      run: pnpm --filter @hamballer/contracts test
+    
+    - name: Run backend tests  
+      run: pnpm --filter @hamballer/backend test
+      
+    - name: Run frontend tests
+      run: pnpm --filter @hamballer/frontend test
+    
+    - name: Build all packages
+      run: pnpm build:all
+      
+  deploy-contracts:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'pnpm'
+    
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+    
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      
+    - name: Deploy contracts
+      run: pnpm deploy:contracts
+      env:
+        PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        ABSTRACT_RPC_URL: ${{ secrets.ABSTRACT_RPC_URL }}
