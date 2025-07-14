@@ -1,4 +1,5 @@
 import React from 'react';
+import XpOverlay from './XpOverlay';
 
 const RunProgress = ({ run, phase, onHodlDecision, loading, engine }) => {
   const currentMove = engine?.currentMove || 0;
@@ -34,12 +35,14 @@ const RunProgress = ({ run, phase, onHodlDecision, loading, engine }) => {
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-gray-600 rounded-full h-3 mb-4">
+        <div className="w-full bg-gray-600 rounded-full h-3 mb-2">
           <div
             className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-1000 ease-out"
             style={{ width: `${progress}%` }}
           ></div>
         </div>
+
+        <XpOverlay />
 
         {/* Move Sequence Visualization */}
         <div className="grid grid-cols-10 gap-1">
