@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useWallet } from '../contexts/WalletContext';
+import { apiFetch } from '../services/useApiService';
 import { useGameState } from '../hooks/useGameState';
 
 const Dashboard = () => {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWallet();
   const { playerStats } = useGameState();
   const [runHistory, setRunHistory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -20,8 +21,7 @@ const Dashboard = () => {
 
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/dashboard/history/${address}?period=${timeFilter}`);
+      const response = await apiFetch(`/api/dashboard/history/${address}?period=${timeFilter}`);
       
       if (response.ok) {
         const data = await response.json();

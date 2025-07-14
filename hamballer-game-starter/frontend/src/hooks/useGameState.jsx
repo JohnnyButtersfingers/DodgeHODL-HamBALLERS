@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useWallet } from '../contexts/WalletContext';
+import { useXp } from '../contexts/XpContext';
 import { useWebSocket } from '../services/useWebSocketService';
 import useContracts from './useContracts';
-import { startRunApi, endRunApi } from '../services/useApiService';
+import { startRunApi, endRunApi, apiFetch } from '../services/useApiService';
 
 const GameStateContext = createContext();
 
@@ -77,7 +78,8 @@ const initialState = {
 
 export const GameStateProvider = ({ children }) => {
   const [state, dispatch] = useReducer(gameStateReducer, initialState);
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWallet();
+  const { setXp } = useXp();
   const { liveXP, liveStats } = useWebSocket();
   const { startRun: contractStartRun, endRun: contractEndRun, isConnected: contractAvailable } = useContracts();
 
@@ -90,6 +92,12 @@ export const GameStateProvider = ({ children }) => {
       });
     }
   }, [liveStats, address]);
+
+  useEffect(() => {
+    if (liveXP && liveXP.playerAddress === address) {
+      setXp((xp) => xp + (liveXP.xpEarned || 0));
+    }
+  }, [liveXP, address, setXp]);
 
   // Fetch initial data when wallet connects
   useEffect(() => {
@@ -104,10 +112,8 @@ export const GameStateProvider = ({ children }) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      
       // Fetch player stats
-      const statsResponse = await fetch(`${apiUrl}/api/dashboard/stats/${address}`);
+      const statsResponse = await apiFetch(`/api/dashboard/stats/${address}`);
       if (statsResponse.ok) {
         const stats = await statsResponse.json();
         dispatch({ type: 'SET_PLAYER_STATS', payload: stats });
@@ -207,6 +213,10 @@ export const GameStateProvider = ({ children }) => {
           isComplete: true,
         },
       });
+
+      if (result.xpGained) {
+        setXp((xp) => xp + result.xpGained);
+      }
 
       return result;
     } catch (error) {

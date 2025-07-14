@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useWallet } from '../contexts/WalletContext';
 import { useGameState } from '../hooks/useGameState';
 import { useWebSocket } from '../services/useWebSocketService';
 import RunProgress from './RunProgress';
@@ -10,7 +10,7 @@ import RunResultDisplay from './RunResultDisplay';
 import useRunEngine from '../lib/useRunEngine';
 
 const GameView = () => {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWallet();
   const { 
     currentRun, 
     playerStats, 
