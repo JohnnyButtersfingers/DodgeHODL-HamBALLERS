@@ -11,7 +11,7 @@ import Layout from './components/Layout';
 import GameView from './components/GameView';
 import Dashboard from './components/Dashboard';
 import ReplayViewer from './components/ReplayViewer';
-import Leaderboard from './components/Leaderboard';
+import Leaderboard from './pages/Leaderboard';
 
 // Hooks
 import { WebSocketProvider } from './services/useWebSocketService';

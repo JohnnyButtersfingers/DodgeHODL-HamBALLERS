@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { getLeaderboard } from '../services/useApiService';
 
+const rankClasses = ['bg-yellow-300', 'bg-gray-300', 'bg-orange-400'];
+
 const Leaderboard = () => {
   const { address } = useWallet();
   const [players, setPlayers] = useState([]);
@@ -21,8 +23,10 @@ const Leaderboard = () => {
     load();
   }, []);
 
-  if (loading) {
-    return <div>Loading leaderboard...</div>;
+  if (loading) return <div>Loading leaderboard...</div>;
+
+  if (!players.length) {
+    return <div>No leaderboard data.</div>;
   }
 
   return (
@@ -39,24 +43,23 @@ const Leaderboard = () => {
         <tbody className="divide-y divide-gray-700">
           {players.map((p, idx) => {
             const isUser = address && p.address.toLowerCase() === address.toLowerCase();
+            const rankStyle = idx < 3 ? rankClasses[idx] : '';
             return (
               <tr
                 key={p.address}
-                className={isUser ? 'bg-green-500/20' : 'hover:bg-gray-700/30'}
+                className={`${isUser ? 'bg-green-500/20' : 'hover:bg-gray-700/30'} ${rankStyle}`}
               >
                 <td className="py-2 px-4">{idx + 1}</td>
-                <td className="py-2 px-4 font-mono">
-                  {p.address.slice(0, 6)}...{p.address.slice(-4)}
-                </td>
+                <td className="py-2 px-4 font-mono">{p.address.slice(0, 6)}...{p.address.slice(-4)}</td>
                 <td className="py-2 px-4 text-green-300">{p.xp}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      {/* TODO: integrate real contract data instead of API mock */}
     </div>
   );
 };
 
 export default Leaderboard;
-
