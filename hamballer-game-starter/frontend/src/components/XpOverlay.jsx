@@ -16,7 +16,11 @@ const XpOverlay = () => {
   }, [xp]);
 
   return (
-    <div className={`text-green-400 drop-shadow-lg ${highlight ? 'animate-pulse' : ''}`}>
+    <div
+      className={`text-green-400 drop-shadow-lg ${
+        highlight ? 'animate-in fade-in animate-bounce' : ''
+      }`}
+    >
       +{xp} XP
     </div>
   );
