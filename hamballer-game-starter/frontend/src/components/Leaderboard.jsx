@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useWallet } from '../contexts/WalletContext';
+import { apiFetch } from '../services/useApiService';
 
 const Leaderboard = () => {
-  const { address } = useAccount();
+  const { address } = useWallet();
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [category, setCategory] = useState('total_dbp'); // total_dbp, best_score, total_runs, win_rate
@@ -15,9 +16,8 @@ const Leaderboard = () => {
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const response = await fetch(
-        `${apiUrl}/api/dashboard/leaderboard?category=${category}&timeframe=${timeframe}`
+      const response = await apiFetch(
+        `/api/dashboard/leaderboard?category=${category}&timeframe=${timeframe}`
       );
       
       if (response.ok) {

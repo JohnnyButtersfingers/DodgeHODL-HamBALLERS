@@ -1,8 +1,8 @@
 import React from 'react';
-import { useAccount } from 'wagmi';
+import { useWallet } from '../contexts/WalletContext';
 
 const StatOverlay = ({ stats }) => {
-  const { address } = useAccount();
+  const { address } = useWallet();
 
   if (!stats) {
     return (

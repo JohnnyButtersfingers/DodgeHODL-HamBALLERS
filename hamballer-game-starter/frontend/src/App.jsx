@@ -14,8 +14,10 @@ import ReplayViewer from './components/ReplayViewer';
 import Leaderboard from './components/Leaderboard';
 
 // Hooks
-import { WebSocketProvider } from './hooks/useWebSocket';
+import { WebSocketProvider } from './services/useWebSocketService';
 import { GameStateProvider } from './hooks/useGameState';
+import { WalletProvider } from './contexts/WalletContext';
+import { XpProvider } from './contexts/XpContext';
 
 // Network configuration
 import { abstractTestnet } from './config/networks';
@@ -103,20 +105,24 @@ function App() {
         }}
       >
         <WebSocketProvider>
-          <GameStateProvider>
-            <Router>
-              <div className="min-h-screen bg-game-dark text-white">
-                <Routes>
-                  <Route path="/" element={<Layout />}>
-                    <Route index element={<GameView />} />
-                    <Route path="dashboard" element={<Dashboard />} />
-                    <Route path="leaderboard" element={<Leaderboard />} />
-                    <Route path="replay/:runId?" element={<ReplayViewer />} />
-                  </Route>
-                </Routes>
-              </div>
-            </Router>
-          </GameStateProvider>
+          <WalletProvider>
+            <XpProvider>
+              <GameStateProvider>
+                <Router>
+                  <div className="min-h-screen bg-game-dark text-white">
+                    <Routes>
+                      <Route path="/" element={<Layout />}>
+                        <Route index element={<GameView />} />
+                        <Route path="dashboard" element={<Dashboard />} />
+                        <Route path="leaderboard" element={<Leaderboard />} />
+                        <Route path="replay/:runId?" element={<ReplayViewer />} />
+                      </Route>
+                    </Routes>
+                  </div>
+                </Router>
+              </GameStateProvider>
+            </XpProvider>
+          </WalletProvider>
         </WebSocketProvider>
       </RainbowKitProvider>
     </WagmiConfig>

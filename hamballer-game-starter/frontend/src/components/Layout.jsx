@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocket } from '../services/useWebSocketService';
 import PriceTicker from './PriceTicker';
 
 const Layout = () => {

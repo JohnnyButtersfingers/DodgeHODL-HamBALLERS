@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocket } from '../services/useWebSocketService';
 
 const PriceTicker = () => {
   const { dbpPrice } = useWebSocket();
