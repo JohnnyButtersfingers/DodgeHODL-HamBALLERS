@@ -1,25 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import XpOverlay from './XpOverlay';
 
-const RunProgress = ({ run, phase, onHodlDecision, loading }) => {
-  const [currentMove, setCurrentMove] = useState(0);
-  const [animating, setAnimating] = useState(false);
-
-  useEffect(() => {
-    if (run && phase === 'running') {
-      // Simulate move progression
-      const interval = setInterval(() => {
-        setCurrentMove(prev => {
-          if (prev < (run.moves?.length || 0) - 1) {
-            return prev + 1;
-          }
-          clearInterval(interval);
-          return prev;
-        });
-      }, 1000); // 1 second per move
-
-      return () => clearInterval(interval);
-    }
-  }, [run, phase]);
+const RunProgress = ({ run, phase, onHodlDecision, loading, engine }) => {
+  const currentMove = engine?.currentMove || 0;
 
   if (!run) return null;
 
@@ -32,7 +15,7 @@ const RunProgress = ({ run, phase, onHodlDecision, loading }) => {
       <div className="bg-gray-700/50 rounded-lg p-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-white">
-            Run #{run.runId} 
+            Run #{run.runId}
             {phase === 'running' && (
               <span className="ml-2 text-sm text-blue-400">
                 Move {currentMove + 1}/{totalMoves}
@@ -52,12 +35,14 @@ const RunProgress = ({ run, phase, onHodlDecision, loading }) => {
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-gray-600 rounded-full h-3 mb-4">
-          <div 
+        <div className="w-full bg-gray-600 rounded-full h-3 mb-2">
+          <div
             className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-1000 ease-out"
             style={{ width: `${progress}%` }}
           ></div>
         </div>
+
+        <XpOverlay />
 
         {/* Move Sequence Visualization */}
         <div className="grid grid-cols-10 gap-1">
@@ -66,9 +51,9 @@ const RunProgress = ({ run, phase, onHodlDecision, loading }) => {
               key={index}
               className={`
                 h-8 rounded flex items-center justify-center text-xs font-medium transition-all duration-300
-                ${index <= currentMove 
-                  ? move === 'UP' 
-                    ? 'bg-green-500 text-white' 
+                ${index <= currentMove
+                  ? move === 'UP'
+                    ? 'bg-green-500 text-white'
                     : 'bg-red-500 text-white'
                   : 'bg-gray-600 text-gray-400'
                 }

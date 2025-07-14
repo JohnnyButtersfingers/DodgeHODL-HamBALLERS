@@ -1,7 +1,64 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { apiFetch } from '../services/useApiService';
 
-const ReplayViewer = () => {
+// Simple playback component used when a moves[] prop is provided
+const SimpleReplay = ({ moves }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (isPlaying && moves.length > 0) {
+      timerRef.current = setTimeout(() => {
+        setCurrent((prev) => {
+          if (prev >= moves.length - 1) {
+            setIsPlaying(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [isPlaying, current, moves]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex space-x-2">
+        <button
+          onClick={() => setIsPlaying(true)}
+          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+        >
+          Play
+        </button>
+        <button
+          onClick={() => setIsPlaying(false)}
+          className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded"
+        >
+          Pause
+        </button>
+      </div>
+
+      <div className="flex space-x-4 text-2xl font-mono justify-center">
+        {moves.map((move, idx) => (
+          <span
+            key={idx}
+            className={idx === current ? 'text-yellow-300' : 'text-white'}
+          >
+            {move}
+          </span>
+        ))}
+      </div>
+
+      {/* TODO: Render move sprites or play sound effects here */}
+    </div>
+  );
+};
+
+const ReplayViewer = ({ moves = [] }) => {
   const { runId } = useParams();
   const navigate = useNavigate();
   const [replays, setReplays] = useState([]);
@@ -11,6 +68,11 @@ const ReplayViewer = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [loading, setLoading] = useState(false);
   const intervalRef = useRef(null);
+
+  // When moves are provided directly, render the simple playback view
+  if (moves.length > 0) {
+    return <SimpleReplay moves={moves} />;
+  }
 
   useEffect(() => {
     fetchReplays();
@@ -46,8 +108,7 @@ const ReplayViewer = () => {
   const fetchReplays = async () => {
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/run/replays`);
+      const response = await apiFetch('/api/run/replays');
       
       if (response.ok) {
         const data = await response.json();
@@ -87,8 +148,7 @@ const ReplayViewer = () => {
   const fetchReplayData = async (replayRunId) => {
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/run/replay/${replayRunId}`);
+      const response = await apiFetch(`/api/run/replay/${replayRunId}`);
       
       if (response.ok) {
         const data = await response.json();

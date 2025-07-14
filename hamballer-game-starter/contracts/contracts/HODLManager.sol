@@ -75,7 +75,7 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
     
     // Events
     event RunStarted(address indexed player, bytes32 seed, uint256 timestamp);
-    event RunCompleted(address indexed player, uint256 cpEarned, uint256 dbpMinted, uint256 duration);
+    event RunCompleted(address indexed user, uint256 xpEarned);
     event RunFailed(address indexed player, uint256 duration);
     event BonusThrowActivated(address indexed player, uint256 multiplier);
     event BoostUsed(address indexed player, uint256 indexed boostId, uint256 amount);
@@ -102,7 +102,7 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
                 "HODLManager: Run already in progress");
         
         // Generate unique seed combining player input and block data
-        bytes32 gameSeeed = keccak256(abi.encodePacked(
+        bytes32 gameSeed = keccak256(abi.encodePacked(
             playerSeed,
             block.timestamp,
             block.difficulty,
@@ -110,8 +110,8 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
             totalRuns
         ));
         
-        require(!usedSeeds[gameSeeed], "HODLManager: Seed already used");
-        usedSeeds[gameSeeed] = true;
+        require(!usedSeeds[gameSeed], "HODLManager: Seed already used");
+        usedSeeds[gameSeed] = true;
         
         // Initialize new run
         currentRuns[msg.sender] = GameRun({
@@ -123,13 +123,13 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
             status: RunStatus.IN_PROGRESS,
             bonusThrowUsed: false,
             boostsUsed: new uint256[](0),
-            seed: gameSeeed
+            seed: gameSeed
         });
         
         totalRuns++;
         playerStats[msg.sender].totalRuns++;
         
-        emit RunStarted(msg.sender, gameSeeed, block.timestamp);
+        emit RunStarted(msg.sender, gameSeed, block.timestamp);
     }
 
     /**
@@ -168,8 +168,9 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
         // Update global stats
         totalCPGenerated += finalCP;
         totalDBPMinted += dbpToMint;
-        
-        emit RunCompleted(msg.sender, finalCP, dbpToMint, block.timestamp - run.startTime);
+
+        uint256 xpEarned = finalCP / CP_TO_DBP_RATE;
+        emit RunCompleted(msg.sender, xpEarned);
     }
 
     /**

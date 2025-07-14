@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const { WebSocketServer } = require('ws');
 const { createServer } = require('http');
 require('dotenv').config();
+const { listenRunCompleted } = require('./listeners/runCompletedListener');
 
 // Route imports
 const runRoutes = require('./routes/run');
@@ -199,6 +200,7 @@ server.listen(PORT, HOST, () => {
   console.log(`🔌 WebSocket: ws://${HOST}:${PORT}/socket`);
   console.log(`🎮 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⚡ WebSocket clients: ${wsClients.size}`);
+  listenRunCompleted();
 });
 
 module.exports = { app, server, wss };
