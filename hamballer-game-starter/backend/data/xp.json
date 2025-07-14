@@ -2,26 +2,57 @@
   {
     "address": "0x742d35Cc6634C0532925a3b8D4C5bc57F4e8F9e2",
     "xp": 1250,
-    "lastUpdated": "2024-01-15T10:30:00Z"
+    "lastUpdated": "2024-01-15T10:30:00Z",
+    "history": [
+      { "ts": 1704367800, "amount": 100 },
+      { "ts": 1704454200, "amount": 150 },
+      { "ts": 1704540600, "amount": 200 },
+      { "ts": 1704627000, "amount": 300 },
+      { "ts": 1704713400, "amount": 250 },
+      { "ts": 1704799800, "amount": 250 }
+    ]
   },
   {
     "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
     "xp": 980,
-    "lastUpdated": "2024-01-14T15:45:00Z"
+    "lastUpdated": "2024-01-14T15:45:00Z",
+    "history": [
+      { "ts": 1704367800, "amount": 80 },
+      { "ts": 1704454200, "amount": 120 },
+      { "ts": 1704540600, "amount": 180 },
+      { "ts": 1704627000, "amount": 220 },
+      { "ts": 1704713400, "amount": 380 }
+    ]
   },
   {
     "address": "0x8ba1f109551bD432803012645Hac136c5C2eE5e3",
     "xp": 875,
-    "lastUpdated": "2024-01-13T09:20:00Z"
+    "lastUpdated": "2024-01-13T09:20:00Z",
+    "history": [
+      { "ts": 1704367800, "amount": 75 },
+      { "ts": 1704454200, "amount": 125 },
+      { "ts": 1704540600, "amount": 175 },
+      { "ts": 1704627000, "amount": 500 }
+    ]
   },
   {
     "address": "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f",
     "xp": 420,
-    "lastUpdated": "2024-01-12T14:15:00Z"
+    "lastUpdated": "2024-01-12T14:15:00Z",
+    "history": [
+      { "ts": 1704367800, "amount": 60 },
+      { "ts": 1704454200, "amount": 90 },
+      { "ts": 1704540600, "amount": 270 }
+    ]
   },
   {
     "address": "0xaB5801a7D398351b8bE11C439e05C5B3259aeC9B",
     "xp": 350,
-    "lastUpdated": "2024-01-11T11:30:00Z"
+    "lastUpdated": "2024-01-11T11:30:00Z",
+    "history": [
+      { "ts": 1704367800, "amount": 50 },
+      { "ts": 1704454200, "amount": 100 },
+      { "ts": 1704540600, "amount": 200 }
+    ]
   }
 ]

@@ -91,10 +91,11 @@ async function saveXpData(data) {
     const dir = path.dirname(XP_DATA_PATH);
     await fs.mkdir(dir, { recursive: true });
     
-    // Add lastUpdated timestamp to each record if not present
+    // Add lastUpdated timestamp and history array to each record if not present
     const dataWithTimestamps = data.map(record => ({
       ...record,
-      lastUpdated: record.lastUpdated || new Date().toISOString()
+      lastUpdated: record.lastUpdated || new Date().toISOString(),
+      history: record.history || []
     }));
 
     // Write to file
@@ -107,16 +108,17 @@ async function saveXpData(data) {
 }
 
 /**
- * Add or update a player's XP
+ * Add or update a player's XP (sets total XP, doesn't add to existing)
  * TODO: This will be replaced with database updates or contract events
  * @param {string} address - Player's wallet address
- * @param {number} xp - Player's XP amount
+ * @param {number} xp - Player's total XP amount
  * @returns {Promise<void>}
  */
 async function updatePlayerXP(address, xp) {
   try {
     const allRecords = await getAllXPRecords();
     const now = new Date().toISOString();
+    const timestamp = Math.floor(Date.now() / 1000);
     
     // Find existing player or add new one
     const playerIndex = allRecords.findIndex(
@@ -124,15 +126,34 @@ async function updatePlayerXP(address, xp) {
     );
 
     if (playerIndex !== -1) {
+      // Calculate XP difference for history
+      const previousXP = allRecords[playerIndex].xp;
+      const xpChange = xp - previousXP;
+      
       // Update existing player
       allRecords[playerIndex].xp = xp;
       allRecords[playerIndex].lastUpdated = now;
+      
+      // Add to history if there's a change
+      if (xpChange !== 0) {
+        if (!allRecords[playerIndex].history) {
+          allRecords[playerIndex].history = [];
+        }
+        allRecords[playerIndex].history.push({
+          ts: timestamp,
+          amount: xpChange
+        });
+      }
     } else {
-      // Add new player
+      // Add new player with initial XP in history
       allRecords.push({
         address,
         xp,
-        lastUpdated: now
+        lastUpdated: now,
+        history: [{
+          ts: timestamp,
+          amount: xp
+        }]
       });
     }
 
@@ -141,6 +162,92 @@ async function updatePlayerXP(address, xp) {
     console.log(`✅ Updated XP for ${address}: ${xp}`);
   } catch (error) {
     console.error('❌ Error updating player XP:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add XP to a player's existing total
+ * TODO: Connect XP history to smart contract event logs
+ * @param {string} address - Player's wallet address
+ * @param {number} amount - Amount of XP to add
+ * @returns {Promise<void>}
+ */
+async function addXP(address, amount) {
+  try {
+    const allRecords = await getAllXPRecords();
+    const now = new Date().toISOString();
+    const timestamp = Math.floor(Date.now() / 1000);
+    
+    // Find existing player or add new one
+    const playerIndex = allRecords.findIndex(
+      player => player.address.toLowerCase() === address.toLowerCase()
+    );
+
+    if (playerIndex !== -1) {
+      // Add to existing player's XP
+      allRecords[playerIndex].xp += amount;
+      allRecords[playerIndex].lastUpdated = now;
+      
+      // Add to history
+      if (!allRecords[playerIndex].history) {
+        allRecords[playerIndex].history = [];
+      }
+      allRecords[playerIndex].history.push({
+        ts: timestamp,
+        amount: amount
+      });
+    } else {
+      // Add new player
+      allRecords.push({
+        address,
+        xp: amount,
+        lastUpdated: now,
+        history: [{
+          ts: timestamp,
+          amount: amount
+        }]
+      });
+    }
+
+    // Save updated data
+    await saveXpData(allRecords);
+    console.log(`✅ Added ${amount} XP to ${address}. New total: ${playerIndex !== -1 ? allRecords[playerIndex].xp : amount}`);
+  } catch (error) {
+    console.error('❌ Error adding XP:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get XP history for a specific player
+ * @param {string} address - Player's wallet address
+ * @returns {Promise<Array|null>} Array of history entries or null if player not found
+ */
+async function getPlayerXPHistory(address) {
+  try {
+    const allRecords = await getAllXPRecords();
+    
+    // Find player (case-insensitive search)
+    const player = allRecords.find(
+      record => record.address.toLowerCase() === address.toLowerCase()
+    );
+
+    if (!player) {
+      return null;
+    }
+
+    // Return history with formatted timestamps
+    const history = (player.history || []).map(entry => ({
+      timestamp: entry.ts,
+      amount: entry.amount,
+      date: new Date(entry.ts * 1000).toISOString()
+    }));
+
+    console.log(`📈 Retrieved XP history for ${address}: ${history.length} entries`);
+    return history;
+  } catch (error) {
+    console.error('❌ Error getting player XP history:', error);
     throw error;
   }
 }
@@ -165,5 +272,7 @@ module.exports = {
   getAllXPRecords,
   getPlayerXPAndRank,
   updatePlayerXP,
+  addXP,
+  getPlayerXPHistory,
   getTotalPlayerCount
 };
