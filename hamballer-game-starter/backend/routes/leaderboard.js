@@ -1,33 +1,27 @@
 const express = require('express');
 const router = express.Router();
+const { getTopPlayersByXP, getPlayerXPAndRank } = require('../utils/xpStore');
 
-// Mock leaderboard data - in a real app this would come from a database
-const mockLeaderboardData = [
-  { address: "0x742d35Cc6634C0532925a3b8D4C5bc57F4e8F9e2", xp: 1250 },
-  { address: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", xp: 980 },
-  { address: "0x8ba1f109551bD432803012645Hac136c5C2eE5e3", xp: 875 },
-  { address: "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f", xp: 420 },
-  { address: "0xaB5801a7D398351b8bE11C439e05C5B3259aeC9B", xp: 350 }
-];
+// TODO: Replace local JSON store with database queries or blockchain contract calls
+// Options for future implementation:
+// 1. Supabase queries: SELECT address, xp FROM player_stats ORDER BY xp DESC LIMIT 5
+// 2. Contract calls: hodlManager.getTopPlayers() or similar view function
+// 3. Hybrid approach: Contract events -> Database cache -> API responses
 
 // GET /api/leaderboard - Get top 5 users by XP
 router.get('/', async (req, res) => {
   try {
-    console.log('📊 Fetching leaderboard data');
+    console.log('📊 Fetching leaderboard data from XP store');
 
-    // In a real implementation, you would:
-    // 1. Query the database for users ordered by XP
-    // 2. Limit results to top 5
-    // 3. Handle pagination if needed
-    
-    // For now, return mock data
-    const leaderboard = mockLeaderboardData.slice(0, 5);
+    // Get top 5 players from the XP store
+    const leaderboard = await getTopPlayersByXP(5);
 
     res.json({
       success: true,
       data: leaderboard,
       timestamp: new Date().toISOString(),
-      count: leaderboard.length
+      count: leaderboard.length,
+      source: 'local_xp_store' // TODO: Change to 'database' or 'contract' when migrated
     });
 
   } catch (error) {
@@ -54,29 +48,21 @@ router.get('/rank/:address', async (req, res) => {
       });
     }
 
-    // Find user's position in leaderboard
-    const userIndex = mockLeaderboardData.findIndex(
-      user => user.address.toLowerCase() === address.toLowerCase()
-    );
+    // Get user's rank and XP from the store
+    const userRank = await getPlayerXPAndRank(address);
 
-    if (userIndex === -1) {
+    if (!userRank) {
       return res.status(404).json({
         success: false,
         error: 'User not found in leaderboard'
       });
     }
 
-    const userRank = {
-      address: mockLeaderboardData[userIndex].address,
-      xp: mockLeaderboardData[userIndex].xp,
-      rank: userIndex + 1,
-      isTopFive: userIndex < 5
-    };
-
     res.json({
       success: true,
       data: userRank,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      source: 'local_xp_store' // TODO: Change to 'database' or 'contract' when migrated
     });
 
   } catch (error) {
