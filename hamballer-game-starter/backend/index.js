@@ -11,6 +11,7 @@ const { listenRunCompleted } = require('./listeners/runCompletedListener');
 const runRoutes = require('./routes/run');
 const dashboardRoutes = require('./routes/dashboard');
 const dbpPriceRoutes = require('./routes/dbp-price');
+const leaderboardRoutes = require('./routes/leaderboard');
 
 // Controllers
 const { broadcastUpdate } = require('./controllers/runLogger');
@@ -121,6 +122,7 @@ app.get('/health', (req, res) => {
 app.use('/api/run', runRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/dbp-price', dbpPriceRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 
 // WebSocket broadcast utility endpoint (for testing)
 app.post('/api/broadcast', (req, res) => {
