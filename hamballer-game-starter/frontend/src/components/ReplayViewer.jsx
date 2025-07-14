@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { apiFetch } from '../services/useApiService';
 
 const ReplayViewer = () => {
   const { runId } = useParams();
@@ -46,8 +47,7 @@ const ReplayViewer = () => {
   const fetchReplays = async () => {
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/run/replays`);
+      const response = await apiFetch('/api/run/replays');
       
       if (response.ok) {
         const data = await response.json();
@@ -87,8 +87,7 @@ const ReplayViewer = () => {
   const fetchReplayData = async (replayRunId) => {
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/run/replay/${replayRunId}`);
+      const response = await apiFetch(`/api/run/replay/${replayRunId}`);
       
       if (response.ok) {
         const data = await response.json();

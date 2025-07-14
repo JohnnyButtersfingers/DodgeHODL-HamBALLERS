@@ -1,0 +1,7 @@
+*.zip
+node_modules/
+dist/
+.env
+.DS_Store
+.turbo/
+.cache/
