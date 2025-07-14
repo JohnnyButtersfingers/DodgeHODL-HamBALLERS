@@ -20,12 +20,23 @@ pnpm dev:frontend
 ## Environment
 Copy `.env.example` to `.env` in each package. See `scripts/setup-offline.sh` for offline installs.
 
+Required Backend Environment Variables
+ABSTRACT_RPC_URL: used in backend to connect to the Abstract testnet RPC
+HODL_MANAGER_ADDRESS: the deployed contract address used by the backend listener
+
 ## Testing
 Run tests from the starter package:
 ```bash
 cd hamballer-game-starter
 pnpm test:all
 ```
+
+If working in an offline environment (e.g., Codex or CI), run:
+
+```
+scripts/setup-offline.sh
+```
+This script installs packages from a cached pnpm store.
 
 ## Contributing
 Use feature branches and open PRs. Lint before pushing. See checklist below.
