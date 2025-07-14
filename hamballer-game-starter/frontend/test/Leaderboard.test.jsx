@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import Leaderboard from '../src/pages/Leaderboard';
-import { vi } from 'vitest';
+import { test, expect, vi } from 'vitest';
 
 vi.mock('../src/services/useApiService', () => ({
   getLeaderboard: vi.fn(() => Promise.resolve([

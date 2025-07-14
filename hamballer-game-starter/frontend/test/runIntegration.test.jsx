@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { vi } from 'vitest';
+import { test, expect, vi } from 'vitest';
 import { GameStateProvider, useGameState } from '../src/hooks/useGameState';
 
 vi.mock('../src/hooks/useContracts', () => {

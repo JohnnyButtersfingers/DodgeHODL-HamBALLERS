@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import useRunEngine from '../src/lib/useRunEngine';
-import { vi } from 'vitest';
+import { test, expect, vi } from 'vitest';
 
 test('progresses through moves', () => {
   vi.useFakeTimers();
