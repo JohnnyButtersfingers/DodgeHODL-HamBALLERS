@@ -1,0 +1,116 @@
+# 🔍 Prometheus Configuration for HamBaller Leaderboard Monitoring
+# Comprehensive metrics collection for production monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'hamballer-leaderboard'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Rules for alerts and aggregations
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Backend API metrics
+  - job_name: 'hamballer-backend'
+    static_configs:
+      - targets: ['hamballer-backend:3001']
+    scrape_interval: 10s
+    metrics_path: /metrics
+    scrape_timeout: 5s
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'backend-api'
+
+  # Frontend nginx metrics (if nginx-prometheus-exporter is configured)
+  - job_name: 'hamballer-frontend'
+    static_configs:
+      - targets: ['hamballer-frontend:9113']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 5s
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-cache:6379']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 5s
+
+  # Node exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # WebSocket specific metrics
+  - job_name: 'websocket-metrics'
+    static_configs:
+      - targets: ['hamballer-backend:3001']
+    scrape_interval: 5s
+    metrics_path: /ws-metrics
+    params:
+      format: ['prometheus']
+
+  # Database metrics (if postgres_exporter is configured)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Leaderboard specific metrics
+  - job_name: 'leaderboard-custom'
+    static_configs:
+      - targets: ['hamballer-backend:3001']
+    scrape_interval: 10s
+    metrics_path: /api/metrics
+    params:
+      format: ['prometheus']
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__name__]
+        regex: '(leaderboard_.*|xp_.*|websocket_.*)'
+        target_label: __tmp_keep
+        replacement: 'yes'
+      - source_labels: [__tmp_keep]
+        regex: 'yes'
+        target_label: __keep
+        replacement: 'yes'
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+
+# Remote write configuration (for long-term storage)
+# remote_write:
+#   - url: "https://your-remote-storage/api/v1/write"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"

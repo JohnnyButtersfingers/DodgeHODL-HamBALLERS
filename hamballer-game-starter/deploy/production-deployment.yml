@@ -1,0 +1,208 @@
+# 🚀 Production Deployment Configuration
+# HamBaller.xyz Leaderboard System
+
+version: '3.8'
+
+services:
+  # Backend API Server
+  hamballer-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.prod
+    container_name: hamballer-api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - XP_STORAGE_MODE=database
+      - ABSTRACT_RPC_URL=${ABSTRACT_RPC_URL}
+      - HODL_MANAGER_ADDRESS=${HODL_MANAGER_ADDRESS}
+      - WEBSOCKET_PATH=/socket
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=1000
+      - CORS_ORIGIN=${FRONTEND_URL}
+      - LOG_LEVEL=info
+    volumes:
+      - ../backend/logs:/app/logs
+    networks:
+      - hamballer-network
+    depends_on:
+      - redis-cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend React App
+  hamballer-frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - REACT_APP_API_URL=${BACKEND_URL}
+        - REACT_APP_WEBSOCKET_URL=${WEBSOCKET_URL}
+        - REACT_APP_ENVIRONMENT=production
+    container_name: hamballer-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    networks:
+      - hamballer-network
+    depends_on:
+      - hamballer-backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache for Performance
+  redis-cache:
+    image: redis:7-alpine
+    container_name: hamballer-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - hamballer-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Load Balancer (nginx)
+  load-balancer:
+    image: nginx:alpine
+    container_name: hamballer-lb
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/load-balancer.conf:/etc/nginx/nginx.conf
+    networks:
+      - hamballer-network
+    depends_on:
+      - hamballer-backend
+
+  # Performance Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hamballer-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - hamballer-network
+
+  # Metrics Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hamballer-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - hamballer-network
+    depends_on:
+      - prometheus
+
+  # Log Aggregation
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+    container_name: hamballer-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - hamballer-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.10.0
+    container_name: hamballer-logstash
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline
+      - ../backend/logs:/usr/share/logstash/logs
+    networks:
+      - hamballer-network
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.0
+    container_name: hamballer-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - hamballer-network
+    depends_on:
+      - elasticsearch
+
+  # Real-time Analytics
+  influxdb:
+    image: influxdb:2.7
+    container_name: hamballer-influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=hamballer
+      - DOCKER_INFLUXDB_INIT_BUCKET=leaderboard-metrics
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    networks:
+      - hamballer-network
+
+networks:
+  hamballer-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  elasticsearch-data:
+  influxdb-data:

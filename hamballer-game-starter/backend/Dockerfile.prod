@@ -1,0 +1,68 @@
+# 🚀 Production Dockerfile for HamBaller Backend
+# Multi-stage build for optimized production image
+
+# Build stage
+FROM node:18-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Add security enhancements
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies with production optimizations
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Remove development files
+RUN rm -rf tests/ *.test.js *.spec.js
+
+# Production stage
+FROM node:18-alpine AS production
+
+# Install security updates and required packages
+RUN apk upgrade --no-cache && \
+    apk add --no-cache dumb-init curl && \
+    rm -rf /var/cache/apk/*
+
+# Create app directory
+WORKDIR /app
+
+# Add non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Copy from builder stage
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app .
+
+# Create logs directory
+RUN mkdir -p logs && chown nodejs:nodejs logs
+
+# Set environment variables for production
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV XP_STORAGE_MODE=database
+ENV LOG_LEVEL=info
+
+# Security: Run as non-root user
+USER nodejs
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:3001/api/health || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
+CMD ["node", "index.js"]
