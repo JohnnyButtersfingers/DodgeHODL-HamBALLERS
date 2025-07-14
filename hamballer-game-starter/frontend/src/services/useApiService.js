@@ -18,3 +18,9 @@ export async function endRunApi(runId, decision) {
     body: JSON.stringify({ runId, hodlDecision: decision })
   });
 }
+
+export async function getLeaderboard() {
+  const res = await apiFetch('/api/leaderboard');
+  if (!res.ok) throw new Error('Failed to fetch leaderboard');
+  return res.json();
+}
