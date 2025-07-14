@@ -102,7 +102,7 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
                 "HODLManager: Run already in progress");
         
         // Generate unique seed combining player input and block data
-        bytes32 gameSeeed = keccak256(abi.encodePacked(
+        bytes32 gameSeed = keccak256(abi.encodePacked(
             playerSeed,
             block.timestamp,
             block.difficulty,
@@ -110,8 +110,8 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
             totalRuns
         ));
         
-        require(!usedSeeds[gameSeeed], "HODLManager: Seed already used");
-        usedSeeds[gameSeeed] = true;
+        require(!usedSeeds[gameSeed], "HODLManager: Seed already used");
+        usedSeeds[gameSeed] = true;
         
         // Initialize new run
         currentRuns[msg.sender] = GameRun({
@@ -123,13 +123,13 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
             status: RunStatus.IN_PROGRESS,
             bonusThrowUsed: false,
             boostsUsed: new uint256[](0),
-            seed: gameSeeed
+            seed: gameSeed
         });
         
         totalRuns++;
         playerStats[msg.sender].totalRuns++;
         
-        emit RunStarted(msg.sender, gameSeeed, block.timestamp);
+        emit RunStarted(msg.sender, gameSeed, block.timestamp);
     }
 
     /**

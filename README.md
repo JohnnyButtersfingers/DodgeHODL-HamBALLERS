@@ -20,7 +20,11 @@ pnpm dev:frontend
 Copy `.env.example` to `.env` in each package. See `scripts/setup-offline.sh` for offline installs.
 
 ## Testing
-Run `pnpm test` in any package or `pnpm test:all` from the repo root.
+Run tests from the starter package:
+```bash
+cd hamballer-game-starter
+pnpm test:all
+```
 
 ## Contributing
 Use feature branches and open PRs. Lint before pushing. See checklist below.
