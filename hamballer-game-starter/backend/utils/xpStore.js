@@ -22,27 +22,25 @@ async function getAllXPRecords() {
 }
 
 /**
- * Get top N players sorted by XP (descending)
- * @param {number} limit - Number of top players to return (default: 5)
- * @returns {Promise<Array>} Array of top players sorted by XP
+ * Get XP leaderboard sorted by XP (descending)
+ * @returns {Promise<Array>} Array of players sorted by XP
  */
-async function getTopPlayersByXP(limit = 5) {
+async function getXpLeaderboard() {
   try {
     const allRecords = await getAllXPRecords();
     
-    // Sort by XP in descending order and limit results
-    const topPlayers = allRecords
+    // Sort by XP in descending order and return only address + xp
+    const leaderboard = allRecords
       .sort((a, b) => b.xp - a.xp)
-      .slice(0, limit)
       .map(player => ({
         address: player.address,
         xp: player.xp
       }));
 
-    console.log(`📊 Retrieved top ${topPlayers.length} players by XP`);
-    return topPlayers;
+    console.log(`📊 Retrieved ${leaderboard.length} players for leaderboard`);
+    return leaderboard;
   } catch (error) {
-    console.error('❌ Error getting top players:', error);
+    console.error('❌ Error getting XP leaderboard:', error);
     throw error;
   }
 }
@@ -83,6 +81,32 @@ async function getPlayerXPAndRank(address) {
 }
 
 /**
+ * Save XP data array to JSON file
+ * @param {Array} data - Array of XP records to save
+ * @returns {Promise<void>}
+ */
+async function saveXpData(data) {
+  try {
+    // Ensure directory exists
+    const dir = path.dirname(XP_DATA_PATH);
+    await fs.mkdir(dir, { recursive: true });
+    
+    // Add lastUpdated timestamp to each record if not present
+    const dataWithTimestamps = data.map(record => ({
+      ...record,
+      lastUpdated: record.lastUpdated || new Date().toISOString()
+    }));
+
+    // Write to file
+    await fs.writeFile(XP_DATA_PATH, JSON.stringify(dataWithTimestamps, null, 2));
+    console.log(`✅ Saved ${data.length} XP records to store`);
+  } catch (error) {
+    console.error('❌ Error saving XP data:', error);
+    throw error;
+  }
+}
+
+/**
  * Add or update a player's XP
  * TODO: This will be replaced with database updates or contract events
  * @param {string} address - Player's wallet address
@@ -112,8 +136,8 @@ async function updatePlayerXP(address, xp) {
       });
     }
 
-    // Write back to file
-    await fs.writeFile(XP_DATA_PATH, JSON.stringify(allRecords, null, 2));
+    // Save updated data
+    await saveXpData(allRecords);
     console.log(`✅ Updated XP for ${address}: ${xp}`);
   } catch (error) {
     console.error('❌ Error updating player XP:', error);
@@ -136,8 +160,9 @@ async function getTotalPlayerCount() {
 }
 
 module.exports = {
+  getXpLeaderboard,
+  saveXpData,
   getAllXPRecords,
-  getTopPlayersByXP,
   getPlayerXPAndRank,
   updatePlayerXP,
   getTotalPlayerCount

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getTopPlayersByXP, getPlayerXPAndRank } = require('../utils/xpStore');
+const { getXpLeaderboard, getPlayerXPAndRank } = require('../utils/xpStore');
 
 // TODO: Replace local JSON store with database queries or blockchain contract calls
 // Options for future implementation:
@@ -13,8 +13,12 @@ router.get('/', async (req, res) => {
   try {
     console.log('📊 Fetching leaderboard data from XP store');
 
-    // Get top 5 players from the XP store
-    const leaderboard = await getTopPlayersByXP(5);
+    // Get all players from the XP store (already sorted by XP descending)
+    const allPlayers = await getXpLeaderboard();
+    
+    // TODO: Add pagination support for larger datasets
+    // TODO: Add filtering options (e.g., by XP range, recent activity)
+    const leaderboard = allPlayers.slice(0, 5); // Limit to top 5 for now
 
     res.json({
       success: true,
