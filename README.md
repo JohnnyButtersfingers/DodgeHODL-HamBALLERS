@@ -30,8 +30,9 @@ Run tests from the starter package:
 cd hamballer-game-starter
 pnpm test:all
 ```
+These tests rely on **Jest**, **Vitest**, and **Hardhat**. Ensure these tools are installed before running.
 
-If working in an offline environment (e.g., Codex or CI), run:
+If dependencies fail to install (for example in offline environments), run:
 
 ```
 scripts/setup-offline.sh

@@ -20,7 +20,8 @@ export async function endRunApi(runId, decision) {
 }
 
 export async function getLeaderboard() {
-  const res = await apiFetch('/api/leaderboard');
+  // Fetch leaderboard data from the run API route
+  const res = await apiFetch('/api/run/leaderboard');
   if (!res.ok) throw new Error('Failed to fetch leaderboard');
   return res.json();
 }
