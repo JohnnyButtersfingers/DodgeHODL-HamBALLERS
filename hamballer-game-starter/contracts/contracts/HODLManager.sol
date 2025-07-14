@@ -75,7 +75,7 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
     
     // Events
     event RunStarted(address indexed player, bytes32 seed, uint256 timestamp);
-    event RunCompleted(address indexed player, uint256 cpEarned, uint256 dbpMinted, uint256 duration);
+    event RunCompleted(address indexed user, uint256 xpEarned);
     event RunFailed(address indexed player, uint256 duration);
     event BonusThrowActivated(address indexed player, uint256 multiplier);
     event BoostUsed(address indexed player, uint256 indexed boostId, uint256 amount);
@@ -168,8 +168,9 @@ contract HODLManager is AccessControl, ReentrancyGuard, Pausable {
         // Update global stats
         totalCPGenerated += finalCP;
         totalDBPMinted += dbpToMint;
-        
-        emit RunCompleted(msg.sender, finalCP, dbpToMint, block.timestamp - run.startTime);
+
+        uint256 xpEarned = finalCP / CP_TO_DBP_RATE;
+        emit RunCompleted(msg.sender, xpEarned);
     }
 
     /**

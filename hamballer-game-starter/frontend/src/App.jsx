@@ -14,7 +14,7 @@ import ReplayViewer from './components/ReplayViewer';
 import Leaderboard from './components/Leaderboard';
 
 // Hooks
-import { WebSocketProvider } from './hooks/useWebSocket';
+import { WebSocketProvider } from './services/useWebSocketService';
 import { GameStateProvider } from './hooks/useGameState';
 
 // Network configuration

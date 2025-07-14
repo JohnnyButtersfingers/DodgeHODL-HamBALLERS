@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '../services/useWebSocketService';
+import useContracts from './useContracts';
+import { startRunApi, endRunApi } from '../services/useApiService';
 
 const GameStateContext = createContext();
 
@@ -77,6 +79,7 @@ export const GameStateProvider = ({ children }) => {
   const [state, dispatch] = useReducer(gameStateReducer, initialState);
   const { address, isConnected } = useAccount();
   const { liveXP, liveStats } = useWebSocket();
+  const { startRun: contractStartRun, endRun: contractEndRun, isConnected: contractAvailable } = useContracts();
 
   // Update player stats when live stats come in
   useEffect(() => {
@@ -143,26 +146,19 @@ export const GameStateProvider = ({ children }) => {
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      
-      const response = await fetch(`${apiUrl}/api/run/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          playerAddress: address,
-          moveSelection,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to start run');
+      let runData;
+      if (contractAvailable) {
+        await contractStartRun(moveSelection);
+        runData = { runId: Date.now().toString() };
+      } else {
+        const response = await startRunApi(address, moveSelection);
+        if (!response.ok) {
+          throw new Error('Failed to start run');
+        }
+        runData = await response.json();
       }
-
-      const runData = await response.json();
-      dispatch({ 
-        type: 'SET_CURRENT_RUN', 
+      dispatch({
+        type: 'SET_CURRENT_RUN',
         payload: {
           ...runData,
           moves: moveSelection,
@@ -191,25 +187,18 @@ export const GameStateProvider = ({ children }) => {
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      
-      const response = await fetch(`${apiUrl}/api/run/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          runId: state.currentRun.runId,
-          hodlDecision,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to end run');
+      let result;
+      if (contractAvailable) {
+        await contractEndRun(state.currentRun.runId, hodlDecision);
+        result = { ...state.currentRun, isComplete: true };
+      } else {
+        const response = await endRunApi(state.currentRun.runId, hodlDecision);
+        if (!response.ok) {
+          throw new Error('Failed to end run');
+        }
+        result = await response.json();
       }
 
-      const result = await response.json();
-      
       // Update run with final results
       dispatch({
         type: 'UPDATE_RUN_PROGRESS',
@@ -238,6 +227,8 @@ export const GameStateProvider = ({ children }) => {
 
   const value = {
     ...state,
+    address,
+    isConnected,
     startRun,
     endRun,
     resetRun,
