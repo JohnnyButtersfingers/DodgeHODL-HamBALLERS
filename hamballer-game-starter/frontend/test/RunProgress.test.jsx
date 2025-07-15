@@ -170,7 +170,7 @@ describe('RunProgress', () => {
       />
     );
     
-    const hodlButton = screen.getByRole('button', { name: /HODL 💎/i });
+    const hodlButton = screen.getByLabelText('Choose HODL option');
     fireEvent.click(hodlButton);
     
     expect(mockOnHodlDecision).toHaveBeenCalledWith(true);
@@ -187,7 +187,7 @@ describe('RunProgress', () => {
       />
     );
     
-    const climbButton = screen.getByRole('button', { name: /CLIMB 🧗/i });
+    const climbButton = screen.getByLabelText('Choose CLIMB option');
     fireEvent.click(climbButton);
     
     expect(mockOnHodlDecision).toHaveBeenCalledWith(false);
@@ -204,12 +204,11 @@ describe('RunProgress', () => {
       />
     );
     
-    const processingButtons = screen.getAllByRole('button', { name: /Processing.../i });
-    expect(processingButtons).toHaveLength(2);
+    const hodlButton = screen.getByLabelText('Choose HODL option');
+    const climbButton = screen.getByLabelText('Choose CLIMB option');
     
-    processingButtons.forEach(button => {
-      expect(button).toBeDisabled();
-    });
+    expect(hodlButton).toBeDisabled();
+    expect(climbButton).toBeDisabled();
   });
 
   it('renders run complete summary in complete phase', () => {
@@ -231,7 +230,7 @@ describe('RunProgress', () => {
       />
     );
     
-    expect(screen.getByText('Run Summary')).toBeInTheDocument();
+    expect(screen.getByText('🏁 Run Summary')).toBeInTheDocument();
     expect(screen.getByText('Final Score')).toBeInTheDocument();
     expect(screen.getByText('200')).toBeInTheDocument();
     expect(screen.getByText('DBP Earned')).toBeInTheDocument();

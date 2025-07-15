@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useGameState } from '../hooks/useGameState';
 import { useWebSocket } from '../services/useWebSocketService.jsx';
@@ -45,11 +45,12 @@ const GameView = () => {
     }
   }, [currentRun, engine.complete, engine.running]);
 
-  const handleMoveSelection = (moves) => {
+  // Memoized callbacks to prevent unnecessary re-renders
+  const handleMoveSelection = useCallback((moves) => {
     setSelectedMoves(moves);
-  };
+  }, []);
 
-  const handleStartRun = async () => {
+  const handleStartRun = useCallback(async () => {
     if (!engine.validateMoves(selectedMoves)) {
       alert('Please select your moves first!');
       return;
@@ -61,95 +62,143 @@ const GameView = () => {
     } catch (error) {
       console.error('Failed to start run:', error);
     }
-  };
+  }, [engine, selectedMoves, startRun]);
 
-  const handleHodlDecision = async (decision) => {
+  const handleHodlDecision = useCallback(async (decision) => {
     setHodlDecision(decision);
     try {
       await endRun(decision);
     } catch (error) {
       console.error('Failed to end run:', error);
     }
-  };
+  }, [endRun]);
 
-  const handlePlayAgain = () => {
+  const handlePlayAgain = useCallback(() => {
     resetRun();
     setSelectedMoves([]);
     engine.reset();
     setHodlDecision(null);
     setGamePhase('setup');
-  };
+  }, [resetRun, engine]);
+
+  // Memoized game phase title
+  const gamePhaseTitle = useMemo(() => {
+    switch (gamePhase) {
+      case 'setup': return 'Select Your Moves';
+      case 'running': return 'Run in Progress...';
+      case 'decision': return 'HODL or CLIMB?';
+      case 'complete': return 'Run Complete!';
+      default: return 'Game';
+    }
+  }, [gamePhase]);
+
+  // Memoized connection status
+  const connectionStatus = useMemo(() => ({
+    indicator: wsConnected ? 'bg-green-400' : 'bg-red-400',
+    text: wsConnected ? 'Live' : 'Offline',
+    pulse: wsConnected ? 'animate-pulse' : ''
+  }), [wsConnected]);
 
   if (!isConnected) {
     return <GameSummary />;
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-      {/* Main Game Area */}
-      <div className="xl:col-span-3">
-        <div className="bg-gray-800/50 rounded-lg p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-white">
-              {gamePhase === 'setup' && 'Select Your Moves'}
-              {gamePhase === 'running' && 'Run in Progress...'}
-              {gamePhase === 'decision' && 'HODL or CLIMB?'}
-              {gamePhase === 'complete' && 'Run Complete!'}
-            </h1>
-            
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-400' : 'bg-red-400'}`} />
-              <span className="text-sm text-gray-400">
-                {wsConnected ? 'Live' : 'Offline'}
-              </span>
+    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div className="container mx-auto px-4 py-6">
+        {/* Responsive Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+          
+          {/* Main Game Area - Takes more space on larger screens */}
+          <section className="lg:col-span-8 xl:col-span-9 order-2 lg:order-1">
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4 sm:p-6 shadow-2xl transition-all duration-300">
+              
+              {/* Header with improved responsive design */}
+              <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+                <h1 className="text-xl sm:text-2xl font-bold text-white transition-colors duration-300">
+                  {gamePhaseTitle}
+                </h1>
+                
+                {/* Connection Status with animations */}
+                <div className="flex items-center space-x-2" role="status" aria-live="polite">
+                  <div 
+                    className={`w-2 h-2 rounded-full ${connectionStatus.indicator} ${connectionStatus.pulse}`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-sm text-gray-400">
+                    {connectionStatus.text}
+                  </span>
+                </div>
+              </header>
+
+              {/* Error Display with improved animation */}
+              {error && (
+                <div 
+                  className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-6 animate-in slide-in-from-top duration-300"
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  <p className="text-red-400">{error}</p>
+                </div>
+              )}
+
+              {/* Game Phase Content with transitions */}
+              <div className="transition-all duration-500 ease-in-out">
+                {gamePhase === 'setup' && (
+                  <div className="animate-in fade-in duration-500">
+                    <MoveSelector 
+                      selectedMoves={selectedMoves}
+                      onMovesChange={handleMoveSelection}
+                      onStartRun={handleStartRun}
+                      loading={loading}
+                      boosts={boosts}
+                    />
+                  </div>
+                )}
+
+                {(gamePhase === 'running' || gamePhase === 'decision' || gamePhase === 'complete') && (
+                  <div className="space-y-6 animate-in slide-in-from-bottom duration-500">
+                    {/* Run Progress */}
+                    <RunProgress
+                      run={currentRun}
+                      phase={gamePhase}
+                      onHodlDecision={handleHodlDecision}
+                      loading={loading}
+                      engine={engine}
+                    />
+
+                    {/* Live Replay with conditional animation */}
+                    {(gamePhase === 'running' && liveReplay) && (
+                      <div className="animate-in fade-in duration-700 delay-200">
+                        <LiveReplay replay={liveReplay} />
+                      </div>
+                    )}
+
+                    {/* Game Complete Actions */}
+                    {gamePhase === 'complete' && (
+                      <div className="animate-in zoom-in duration-500 delay-300">
+                        <RunResultDisplay run={currentRun} onPlayAgain={handlePlayAgain} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </section>
 
-          {error && (
-            <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-6">
-              <p className="text-red-400">{error}</p>
-            </div>
-          )}
-
-          {/* Game Phase Content */}
-          {gamePhase === 'setup' && (
-            <MoveSelector 
-              selectedMoves={selectedMoves}
-              onMovesChange={handleMoveSelection}
-              onStartRun={handleStartRun}
-              loading={loading}
-              boosts={boosts}
-            />
-          )}
-
-          {(gamePhase === 'running' || gamePhase === 'decision' || gamePhase === 'complete') && (
-            <div className="space-y-6">
-              {/* Run Progress */}
-              <RunProgress
-                run={currentRun}
-                phase={gamePhase}
-                onHodlDecision={handleHodlDecision}
-                loading={loading}
-                engine={engine}
+          {/* Sidebar - Responsive positioning and styling */}
+          <aside className="lg:col-span-4 xl:col-span-3 order-1 lg:order-2">
+            <div className="sticky top-6">
+              <ActivitySidebar 
+                playerStats={playerStats} 
+                boosts={boosts} 
               />
-
-              {/* Live Replay */}
-              {(gamePhase === 'running' && liveReplay) && (
-                <LiveReplay replay={liveReplay} />
-              )}
-
-              {/* Game Complete Actions */}
-              {gamePhase === 'complete' && (
-                <RunResultDisplay run={currentRun} onPlayAgain={handlePlayAgain} />
-              )}
             </div>
-          )}
+          </aside>
+
         </div>
       </div>
-
-      {/* Sidebar */}
-      <ActivitySidebar playerStats={playerStats} boosts={boosts} />
-    </div>
+    </main>
   );
 };
 
