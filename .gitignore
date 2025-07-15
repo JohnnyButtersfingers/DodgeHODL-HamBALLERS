@@ -5,3 +5,7 @@ dist/
 .DS_Store
 .turbo/
 .cache/
+
+!scripts/pnpm-store/
+scripts/pnpm-store/*
+!scripts/pnpm-store/.gitkeep

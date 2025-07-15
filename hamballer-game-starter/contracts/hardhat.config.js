@@ -16,7 +16,7 @@ module.exports = {
           },
         },
         // Use local solc to avoid network download
-        path: require.resolve('solc'),
+        solcPath: require.resolve('solc'),
       },
     ],
   },

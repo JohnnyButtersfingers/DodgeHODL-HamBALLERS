@@ -52,10 +52,9 @@ Use feature branches and open PRs. Lint before pushing. See checklist below.
 - [ ] Run `pnpm test` for validation
 
 ## Offline Development
-1. On a machine with internet access run `pnpm store path` to locate your local store.
-2. Copy the contents of that store into `scripts/pnpm-store/` in this repo.
-3. On the offline machine run `scripts/setup-offline.sh` to install packages.
-4. Run `pnpm install:all` to link dependencies for each workspace.
+1. On a machine with internet access prefetch packages with `pnpm store add jest vitest hardhat`.
+2. Export the store using `pnpm store export <dest>` and copy it into `scripts/pnpm-store/`.
+3. From the repo root run `scripts/setup-offline.sh` to install packages from that store.
 
 The following packages must be available in the store for tests:
 - jest
