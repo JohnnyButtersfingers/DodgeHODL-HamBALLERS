@@ -1,6 +1,6 @@
 #!/bin/bash
 # Helper to install deps using a local pnpm store for offline environments
-STORE_DIR="${PNPM_STORE_DIR:-./pnpm-store}"
+STORE_DIR="${PNPM_STORE_DIR:-$(dirname "$0")/pnpm-store}"
 
 if [ ! -d "$STORE_DIR" ]; then
   echo "Local pnpm store not found at $STORE_DIR" >&2
