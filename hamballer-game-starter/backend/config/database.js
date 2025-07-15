@@ -228,6 +228,26 @@ const db = {
     return data || [];
   },
 
+  async updateXP(playerAddress, xpEarned) {
+    if (!supabase) {
+      console.log('📝 Mock: Updating XP', playerAddress, xpEarned);
+      return { player_address: playerAddress, xp: xpEarned };
+    }
+
+    const { data, error } = await supabase
+      .from('event_logs')
+      .insert([{ event_type: 'xp_earned', player_address: playerAddress, event_data: { xpEarned } }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Database error recording XP:', error);
+      throw error;
+    }
+
+    return data;
+  },
+
   // Add supabase reference for direct access when needed
   supabase
 };

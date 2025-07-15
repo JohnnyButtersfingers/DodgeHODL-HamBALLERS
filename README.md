@@ -27,6 +27,9 @@ Copy `.env.example` to `.env` in each package. See `scripts/setup-offline.sh` fo
 Required Backend Environment Variables
 ABSTRACT_RPC_URL: used in backend to connect to the Abstract testnet RPC
 HODL_MANAGER_ADDRESS: the deployed contract address used by the backend listener
+### XP Persistence
+The backend listens for `RunCompleted` events from the `HODLManager` contract. When detected, `runCompletedListener.js` stores the XP reward using `db.updateXP(address, xpEarned)`. Ensure `ABSTRACT_RPC_URL` and `HODL_MANAGER_ADDRESS` are configured so this listener runs.
+
 
 ## Testing
 Run tests from the starter package:
@@ -64,3 +67,4 @@ The following packages must be available in the store for tests:
 - jest
 - vitest
 - hardhat
+
