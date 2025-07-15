@@ -10,6 +10,7 @@ import { useWebSocket } from '../services/useWebSocketService';
 import useSmartContractEvents from '../hooks/useSmartContractEvents';
 import FriendLeaderboard from './FriendLeaderboard';
 import XPHistoryChart from './XPHistoryChart';
+import PlayerBrowser from './PlayerBrowser';
 
 const SocialDashboard = () => {
   const { address } = useWallet();
@@ -32,6 +33,7 @@ const SocialDashboard = () => {
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'friends', label: 'Friends', icon: Users },
     { id: 'history', label: 'XP History', icon: History },
+    { id: 'browser', label: 'Player Browser', icon: Trophy },
     { id: 'events', label: 'Live Events', icon: Activity }
   ];
 
@@ -346,6 +348,7 @@ const SocialDashboard = () => {
             {activeTab === 'overview' && <OverviewTab />}
             {activeTab === 'friends' && <FriendLeaderboard />}
             {activeTab === 'history' && <XPHistoryChart />}
+            {activeTab === 'browser' && <PlayerBrowser />}
             {activeTab === 'events' && <EventsTab />}
           </motion.div>
         </AnimatePresence>

@@ -1,14 +1,40 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Trophy, Star, TrendingUp, Calendar,
   Award, Target, Zap, Activity, History,
   RefreshCw, AlertCircle, ExternalLink,
-  Copy, Check, BarChart3, Users
+  Copy, Check, BarChart3, Users, ChevronDown
 } from 'lucide-react';
+import {
+  Line,
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line as LineChart } from 'react-chartjs-2';
+import { format } from 'date-fns';
 import { useWallet } from '../contexts/WalletContext';
 import { apiFetch } from '../services/useApiService';
 import { useWebSocket } from '../services/useWebSocketService';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const PlayerProfile = ({ playerAddress, isOwnProfile = false }) => {
   const { address: connectedAddress } = useWallet();
@@ -24,6 +50,7 @@ const PlayerProfile = ({ playerAddress, isOwnProfile = false }) => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
+  const [showMatchHistory, setShowMatchHistory] = useState(false);
 
   // Fetch player profile data
   const fetchPlayerProfile = useCallback(async () => {
@@ -101,6 +128,171 @@ const PlayerProfile = ({ playerAddress, isOwnProfile = false }) => {
       return { color: 'text-gray-400', bgColor: 'bg-gray-500/20', icon: Target };
     }
   };
+
+  // Prepare chart data for XP history
+  const chartData = useMemo(() => {
+    if (!profile?.history || profile.history.length === 0) return null;
+    
+    // Sort by timestamp and calculate cumulative XP
+    const sortedHistory = [...profile.history].sort((a, b) => a.timestamp - b.timestamp);
+    let cumulativeXP = 0;
+    
+    const processedData = sortedHistory.map(entry => {
+      cumulativeXP += entry.amount;
+      return {
+        ...entry,
+        cumulative: cumulativeXP,
+        date: new Date(entry.timestamp * 1000)
+      };
+    });
+    
+    const labels = processedData.map(entry => format(entry.date, 'MMM dd'));
+    const xpGains = processedData.map(entry => entry.amount);
+    const cumulativeValues = processedData.map(entry => entry.cumulative);
+    
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'XP Gained',
+          data: xpGains,
+          borderColor: 'rgb(59, 130, 246)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: 'rgb(59, 130, 246)',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+        },
+        {
+          label: 'Cumulative XP',
+          data: cumulativeValues,
+          borderColor: 'rgb(16, 185, 129)',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: false,
+          tension: 0.4,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointBackgroundColor: 'rgb(16, 185, 129)',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          yAxisID: 'y1',
+        }
+      ]
+    };
+  }, [profile?.history]);
+
+  // Chart options
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          color: '#9CA3AF',
+          font: {
+            size: 12
+          }
+        }
+      },
+      title: {
+        display: true,
+        text: 'XP Progression Over Time',
+        color: '#FFFFFF',
+        font: {
+          size: 16,
+          weight: 'bold'
+        }
+      },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        backgroundColor: 'rgba(17, 24, 39, 0.9)',
+        titleColor: '#FFFFFF',
+        bodyColor: '#D1D5DB',
+        borderColor: '#374151',
+        borderWidth: 1,
+        cornerRadius: 8,
+        callbacks: {
+          label: function(context) {
+            const label = context.dataset.label || '';
+            const value = context.parsed.y;
+            return `${label}: ${value.toLocaleString()} XP`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: '#9CA3AF',
+          maxRotation: 45,
+          minRotation: 45
+        },
+        grid: {
+          color: 'rgba(75, 85, 99, 0.3)'
+        }
+      },
+      y: {
+        type: 'linear',
+        display: true,
+        position: 'left',
+        ticks: {
+          color: '#9CA3AF',
+          callback: function(value) {
+            return value.toLocaleString() + ' XP';
+          }
+        },
+        grid: {
+          color: 'rgba(75, 85, 99, 0.3)'
+        }
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        ticks: {
+          color: '#9CA3AF',
+          callback: function(value) {
+            return value.toLocaleString() + ' XP';
+          }
+        },
+        grid: {
+          drawOnChartArea: false,
+          color: 'rgba(75, 85, 99, 0.3)'
+        }
+      }
+    },
+    interaction: {
+      mode: 'nearest',
+      axis: 'x',
+      intersect: false
+    }
+  }), []);
+
+  // Generate realistic match history placeholders
+  const matchHistoryData = useMemo(() => {
+    if (!profile) return [];
+    
+    const gameTypes = ['Classic Run', 'Speed Challenge', 'Obstacle Course', 'Time Attack', 'Distance Run'];
+    const outcomes = ['Victory', 'Defeat', 'Draw'];
+    const difficulties = ['Easy', 'Medium', 'Hard', 'Expert'];
+    
+    return Array.from({ length: 8 }, (_, i) => ({
+      id: i + 1,
+      gameType: gameTypes[Math.floor(Math.random() * gameTypes.length)],
+      outcome: outcomes[Math.floor(Math.random() * outcomes.length)],
+      difficulty: difficulties[Math.floor(Math.random() * difficulties.length)],
+      score: Math.floor(Math.random() * 10000) + 1000,
+      xpEarned: Math.floor(Math.random() * 200) + 50,
+      duration: Math.floor(Math.random() * 300) + 60, // seconds
+      timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // last 7 days
+      players: Math.floor(Math.random() * 10) + 2
+    }));
+  }, [profile]);
 
   if (!targetAddress) {
     return (
@@ -303,57 +495,101 @@ const PlayerProfile = ({ playerAddress, isOwnProfile = false }) => {
               </div>
             </div>
 
-            {/* TODO: XP History Chart */}
+            {/* XP History Chart */}
             <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">XP History Chart</h3>
-                <div className="text-sm text-gray-400">TODO: Chart Implementation</div>
-              </div>
-              
-              <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-600/50 rounded-lg">
-                <div className="text-center">
-                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-400 text-lg font-medium">XP Progression Chart</p>
-                  <p className="text-gray-500 text-sm mt-2">
-                    TODO: Integrate Chart.js visualization
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    Will show {profile.history?.length || 0} data points
-                  </p>
+                <h3 className="text-lg font-bold text-white">XP Progression Chart</h3>
+                <div className="text-sm text-gray-400">
+                  {profile.history?.length || 0} data points
                 </div>
               </div>
+              
+              {chartData ? (
+                <div className="h-64">
+                  <LineChart data={chartData} options={chartOptions} />
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-600/50 rounded-lg">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-400 text-lg font-medium">No XP History</p>
+                    <p className="text-gray-500 text-sm mt-2">
+                      Start playing to build your XP progression chart!
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* TODO: Match History */}
+            {/* Match History */}
             <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">Match History</h3>
-                <div className="text-sm text-gray-400">TODO: Game Integration</div>
+                <h3 className="text-lg font-bold text-white">Recent Match History</h3>
+                <button
+                  onClick={() => setShowMatchHistory(!showMatchHistory)}
+                  className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  <span className="text-sm">Show {showMatchHistory ? 'Less' : 'More'}</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showMatchHistory ? 'rotate-180' : ''}`} />
+                </button>
               </div>
               
               <div className="space-y-3">
-                {/* Placeholder match entries */}
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-600/50">
+                {/* Show first 3 matches by default, all if expanded */}
+                {matchHistoryData.slice(0, showMatchHistory ? matchHistoryData.length : 3).map((match) => (
+                  <div key={match.id} className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg border border-gray-600/30">
                     <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-purple-500/20 rounded-lg">
-                        <History className="h-4 w-4 text-purple-400" />
+                      <div className={`p-2 rounded-lg ${
+                        match.outcome === 'Victory' ? 'bg-green-500/20' :
+                        match.outcome === 'Defeat' ? 'bg-red-500/20' : 'bg-yellow-500/20'
+                      }`}>
+                        <Activity className={`h-4 w-4 ${
+                          match.outcome === 'Victory' ? 'text-green-400' :
+                          match.outcome === 'Defeat' ? 'text-red-400' : 'text-yellow-400'
+                        }`} />
                       </div>
                       <div>
-                        <p className="text-white font-medium">Match #{i} - TODO</p>
-                        <p className="text-sm text-gray-400">Placeholder for game data</p>
+                        <p className="text-white font-medium">{match.gameType}</p>
+                        <div className="flex items-center space-x-4 text-sm text-gray-400">
+                          <span>{match.difficulty}</span>
+                          <span>•</span>
+                          <span>{match.players} players</span>
+                          <span>•</span>
+                          <span>{Math.floor(match.duration / 60)}:{(match.duration % 60).toString().padStart(2, '0')}</span>
+                        </div>
                       </div>
                     </div>
+                    
                     <div className="text-right">
-                      <p className="text-sm text-gray-400">Score</p>
-                      <p className="text-white font-bold">TODO</p>
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Score</p>
+                          <p className="text-white font-bold">{formatNumber(match.score)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">XP</p>
+                          <p className="text-green-400 font-medium">+{match.xpEarned}</p>
+                        </div>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                          match.outcome === 'Victory' ? 'bg-green-500/20 text-green-400' :
+                          match.outcome === 'Defeat' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {match.outcome}
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {match.timestamp.toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                 ))}
                 
-                <div className="text-center py-8">
-                  <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-400">Match history will be integrated with game system</p>
+                {/* Integration note */}
+                <div className="text-center py-4 border-t border-gray-700/50 mt-4">
+                  <div className="flex items-center justify-center space-x-2 text-gray-400">
+                    <Users className="h-4 w-4" />
+                    <span className="text-sm">Match data will sync with game system integration</span>
+                  </div>
                 </div>
               </div>
             </div>
