@@ -9,6 +9,10 @@ Web3 dodgeball survival game. [Demo](https://hamballers.xyz)
 - **frontend/** – React client powered by Vite
 
 ## Quick Start
+### Prerequisites
+- Node.js 18+
+- pnpm 8+
+- Git
 ```bash
 cd hamballer-game-starter
 pnpm install:all
