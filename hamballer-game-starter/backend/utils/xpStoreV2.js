@@ -489,6 +489,179 @@ class XPStore {
   }
 
   /**
+   * Get comprehensive player profile including lifetime XP, rank, and history
+   * Phase 6: Player Profiles
+   * @param {string} address - Player's wallet address
+   * @returns {Promise<Object|null>} Complete player profile or null if not found
+   */
+  async getPlayerProfile(address) {
+    try {
+      if (this.mode === 'database' && this.supabase) {
+        return await this._getDatabasePlayerProfile(address);
+      } else {
+        return await this._getJsonPlayerProfile(address);
+      }
+    } catch (error) {
+      console.error('❌ Error getting player profile:', error);
+      
+      // Fallback to JSON if database fails
+      if (this.mode === 'database') {
+        return await this._getJsonPlayerProfile(address);
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Get player rank only (lightweight version)
+   * Phase 6: Player Profiles
+   * @param {string} address - Player's wallet address
+   * @returns {Promise<Object|null>} Player rank information or null if not found
+   */
+  async getPlayerRank(address) {
+    try {
+      // This can use the existing getPlayerXPAndRank function
+      const playerData = await this.getPlayerXPAndRank(address);
+      
+      if (!playerData) {
+        return null;
+      }
+
+      return {
+        address: playerData.address,
+        rank: playerData.rank,
+        xp: playerData.xp,
+        isTopFive: playerData.isTopFive,
+        totalPlayers: playerData.totalPlayers || null
+      };
+    } catch (error) {
+      console.error('❌ Error getting player rank:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get database player profile with comprehensive data
+   */
+  async _getDatabasePlayerProfile(address) {
+    // Get basic player data
+    const { data: player, error } = await this.supabase
+      .from('player_xp')
+      .select('player_address, xp, last_xp_update, created_at')
+      .eq('player_address', address.toLowerCase())
+      .single();
+
+    if (error || !player) {
+      return null;
+    }
+
+    // Get rank using window function
+    const { data: rankData } = await this.supabase
+      .rpc('get_player_rank', { player_addr: address.toLowerCase() });
+
+    const rank = rankData?.[0]?.rank || null;
+
+    // Get XP history
+    const { data: history } = await this.supabase
+      .from('xp_history')
+      .select('xp_amount, transaction_hash, block_number, timestamp, reason')
+      .eq('player_address', address.toLowerCase())
+      .order('timestamp', { ascending: false })
+      .limit(100); // Last 100 transactions
+
+    // Get total players for context
+    const { count: totalPlayers } = await this.supabase
+      .from('player_xp')
+      .select('*', { count: 'exact', head: true });
+
+    // Calculate additional statistics
+    const lifetimeXP = history?.reduce((sum, h) => sum + (h.xp_amount || 0), 0) || player.xp;
+    const totalTransactions = history?.length || 0;
+    const averageXPPerTransaction = totalTransactions > 0 ? Math.round(lifetimeXP / totalTransactions) : 0;
+
+    // Format history for response
+    const formattedHistory = (history || []).map(h => ({
+      timestamp: Math.floor(new Date(h.timestamp).getTime() / 1000),
+      amount: h.xp_amount,
+      transactionHash: h.transaction_hash,
+      blockNumber: h.block_number,
+      reason: h.reason,
+      date: h.timestamp
+    }));
+
+    return {
+      address: player.player_address,
+      xp: player.xp,
+      rank: rank,
+      isTopFive: rank && rank <= 5,
+      lifetimeXP: lifetimeXP,
+      totalPlayers: totalPlayers,
+      joinedAt: player.created_at,
+      lastUpdated: player.last_xp_update,
+      statistics: {
+        totalTransactions,
+        averageXPPerTransaction,
+        bestTransaction: Math.max(...(history?.map(h => h.xp_amount) || [0]))
+      },
+      history: formattedHistory
+    };
+  }
+
+  /**
+   * Get JSON player profile with comprehensive data
+   */
+  async _getJsonPlayerProfile(address) {
+    // Load XP data
+    const allRecords = await this._loadJsonData();
+    
+    // Find player
+    const player = allRecords.find(
+      record => record.address.toLowerCase() === address.toLowerCase()
+    );
+
+    if (!player) {
+      return null;
+    }
+
+    // Calculate rank
+    const sortedPlayers = allRecords.sort((a, b) => b.xp - a.xp);
+    const rank = sortedPlayers.findIndex(p => 
+      p.address.toLowerCase() === address.toLowerCase()
+    ) + 1;
+
+    // Get history from player record
+    const history = (player.history || []).map(entry => ({
+      timestamp: entry.ts,
+      amount: entry.amount,
+      date: new Date(entry.ts * 1000).toISOString()
+    }));
+
+    // Calculate statistics
+    const lifetimeXP = history.reduce((sum, h) => sum + h.amount, 0);
+    const totalTransactions = history.length;
+    const averageXPPerTransaction = totalTransactions > 0 ? Math.round(lifetimeXP / totalTransactions) : 0;
+    const bestTransaction = Math.max(...(history.map(h => h.amount) || [0]));
+
+    return {
+      address: player.address,
+      xp: player.xp,
+      rank: rank,
+      isTopFive: rank <= 5,
+      lifetimeXP: lifetimeXP,
+      totalPlayers: allRecords.length,
+      joinedAt: null, // Not tracked in JSON mode
+      lastUpdated: player.lastUpdated,
+      statistics: {
+        totalTransactions,
+        averageXPPerTransaction,
+        bestTransaction
+      },
+      history: history.slice(-100) // Last 100 transactions
+    };
+  }
+
+  /**
    * Migrate data from JSON to database
    */
   async migrateJsonToDatabase() {
@@ -579,6 +752,10 @@ module.exports = {
   getPlayerXPAndRank: (address) => xpStore.getPlayerXPAndRank(address),
   updatePlayerXP: (address, xp, source, reason) => xpStore.updatePlayerXP(address, xp, source, reason),
   getLeaderboardStats: () => xpStore.getLeaderboardStats(),
+  
+  // Phase 6: Player Profiles
+  getPlayerProfile: (address) => xpStore.getPlayerProfile(address),
+  getPlayerRank: (address) => xpStore.getPlayerRank(address),
   
   // New enhanced functions
   verifyXPFromBlockchain: (address) => xpStore.verifyXPFromBlockchain(address),
