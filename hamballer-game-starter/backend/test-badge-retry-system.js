@@ -71,15 +71,15 @@ async function testRetryQueue() {
       return false;
     }
     
-    // Test retry delay calculation
+    // Test retry delay calculation (should start with 15s base delay)
     log.info('Testing retry delay calculation...');
     const delays = [0, 1, 2, 3, 4].map(count => retryQueue.calculateRetryDelay(count));
     log.info(`Retry delays: ${delays.map(d => Math.round(d/1000))}s`);
     
-    if (delays.every(d => d >= 1000)) {
-      log.success('Retry delay calculation working correctly');
+    if (delays.every(d => d >= 1000) && delays[0] >= 14000 && delays[0] <= 16000) {
+      log.success('Retry delay calculation working correctly (15s base delay)');
     } else {
-      log.error('Retry delay calculation failed');
+      log.error('Retry delay calculation failed - expected ~15s base delay');
       return false;
     }
     
@@ -195,6 +195,23 @@ async function testAPIEndpoints() {
     const fetch = (await import('node-fetch')).default;
     const baseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
     
+    // Test health endpoint with badge retry stats
+    log.info('Testing health endpoint with badge retry stats...');
+    const healthResponse = await fetch(`${baseUrl}/health`);
+    
+    if (!healthResponse.ok) {
+      log.error(`Health endpoint failed: ${healthResponse.status}`);
+      return false;
+    }
+    
+    const healthData = await healthResponse.json();
+    if (healthData.status === 'healthy' && healthData.badgeRetrySystem) {
+      log.success('Health endpoint includes badge retry system stats');
+    } else {
+      log.error('Health endpoint missing badge retry system stats');
+      return false;
+    }
+
     // Test badge claim status endpoint
     log.info('Testing badge claim status endpoint...');
     const claimStatusResponse = await fetch(`${baseUrl}/api/badges/${TEST_CONFIG.testWallet}/claim-status`);
@@ -209,6 +226,23 @@ async function testAPIEndpoints() {
       log.success('Badge claim status endpoint working');
     } else {
       log.error('Badge claim status endpoint returned error');
+      return false;
+    }
+
+    // Test pending badges endpoint
+    log.info('Testing pending badges endpoint...');
+    const pendingResponse = await fetch(`${baseUrl}/api/badges/pending`);
+    
+    if (!pendingResponse.ok) {
+      log.error(`Pending badges endpoint failed: ${pendingResponse.status}`);
+      return false;
+    }
+    
+    const pendingData = await pendingResponse.json();
+    if (pendingData.success && Array.isArray(pendingData.pendingAttempts)) {
+      log.success('Pending badges endpoint working');
+    } else {
+      log.error('Pending badges endpoint returned invalid format');
       return false;
     }
     

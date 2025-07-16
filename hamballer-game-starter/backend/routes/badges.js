@@ -447,6 +447,154 @@ router.get('/retry-queue/stats', async (req, res) => {
 });
 
 /**
+ * GET /api/badges/pending - Get all active/pending badge mint attempts
+ */
+router.get('/pending', async (req, res) => {
+  try {
+    // Check if database is available
+    if (!db) {
+      return res.status(503).json({
+        error: 'Database not available',
+        code: 'DATABASE_UNAVAILABLE'
+      });
+    }
+
+    // Get pagination parameters
+    const limit = Math.min(parseInt(req.query.limit) || 100, 100); // Max 100
+    const offset = parseInt(req.query.offset) || 0;
+
+    // Get all pending badge claim attempts
+    const { data: pendingAttempts, error } = await db
+      .from('badge_claim_attempts')
+      .select(`
+        id,
+        player_address,
+        run_id,
+        xp_earned,
+        season,
+        token_id,
+        status,
+        error_message,
+        retry_count,
+        last_retry_at,
+        created_at,
+        updated_at
+      `)
+      .in('status', ['pending', 'minting', 'failed'])
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    // Get total count for pagination
+    const { count: totalCount, error: countError } = await db
+      .from('badge_claim_attempts')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['pending', 'minting', 'failed']);
+
+    if (countError) {
+      throw countError;
+    }
+
+    // Enhance with metadata for better visibility
+    const enhancedAttempts = pendingAttempts.map(attempt => ({
+      ...attempt,
+      badge_metadata: {
+        xp_awarded: attempt.xp_earned,
+        calculated_token_id: attempt.token_id,
+        season_id: attempt.season,
+        badge_tier: getBadgeTierName(attempt.token_id)
+      },
+      retry_metadata: {
+        current_retry: attempt.retry_count,
+        max_retries: 5,
+        next_retry_estimated: attempt.last_retry_at ? 
+          calculateNextRetryTime(attempt.retry_count, attempt.last_retry_at) : 
+          'immediate',
+        time_since_created: Math.floor((new Date() - new Date(attempt.created_at)) / 1000)
+      }
+    }));
+
+    // Group by status for easy filtering
+    const attemptsByStatus = enhancedAttempts.reduce((acc, attempt) => {
+      if (!acc[attempt.status]) {
+        acc[attempt.status] = [];
+      }
+      acc[attempt.status].push(attempt);
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      pendingAttempts: enhancedAttempts,
+      attemptsByStatus,
+      pagination: {
+        limit,
+        offset,
+        total: totalCount || 0,
+        hasMore: (offset + limit) < (totalCount || 0)
+      },
+      summary: {
+        totalPending: enhancedAttempts.length,
+        byStatus: {
+          pending: enhancedAttempts.filter(a => a.status === 'pending').length,
+          minting: enhancedAttempts.filter(a => a.status === 'minting').length,
+          failed: enhancedAttempts.filter(a => a.status === 'failed').length
+        }
+      },
+      generatedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching pending badge attempts:', error);
+    res.status(500).json({
+      error: 'Failed to fetch pending badge attempts',
+      code: 'PENDING_FETCH_ERROR',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Helper function to get badge tier name from token ID
+ */
+function getBadgeTierName(tokenId) {
+  const tiers = {
+    0: 'Participation',
+    1: 'Common',
+    2: 'Rare', 
+    3: 'Epic',
+    4: 'Legendary'
+  };
+  return tiers[tokenId] || 'Unknown';
+}
+
+/**
+ * Helper function to calculate next retry time
+ */
+function calculateNextRetryTime(retryCount, lastRetryAt) {
+  if (!lastRetryAt) return 'immediate';
+  
+  const baseDelay = 15000; // 15 seconds
+  const exponentialDelay = Math.min(
+    baseDelay * Math.pow(2, retryCount),
+    300000 // 5 minutes max
+  );
+  
+  const nextRetryTime = new Date(new Date(lastRetryAt).getTime() + exponentialDelay);
+  const now = new Date();
+  
+  if (nextRetryTime <= now) {
+    return 'ready now';
+  }
+  
+  const secondsUntilRetry = Math.ceil((nextRetryTime - now) / 1000);
+  return `${secondsUntilRetry}s`;
+}
+
+/**
  * POST /api/badges/retry-queue/manual-recovery - Manual event recovery for specific block range
  */
 router.post('/retry-queue/manual-recovery', async (req, res) => {

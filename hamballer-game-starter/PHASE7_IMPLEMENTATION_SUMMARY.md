@@ -92,10 +92,11 @@ This document summarizes the comprehensive badge minting retry system implemente
 - **Backward compatibility** with existing badge endpoints
 
 ### Monitoring & Observability
-- **Detailed logging** with emoji indicators for easy scanning
-- **Queue statistics** (size, processing status, retry distribution)
+- **Enhanced detailed logging** with XP badge metadata in all retry logs
+- **Queue statistics** (size, processing status, retry distribution) 
 - **Success rate tracking** and failure analysis
-- **Health metrics** for system monitoring
+- **Health metrics** integrated into `/health` endpoint
+- **Pending claims visibility** via `/api/badges/pending` for admin dashboard
 
 ## 🔧 Configuration
 
@@ -116,7 +117,7 @@ SUPABASE_ANON_KEY=eyJ...
 ```javascript
 {
   maxRetries: 5,
-  baseDelay: 5000,      // 5 seconds
+  baseDelay: 15000,     // 15 seconds (matches frontend polling)
   maxDelay: 300000,     // 5 minutes
   backoffMultiplier: 2,
   jitterRange: 0.1      // ±10% jitter
@@ -153,6 +154,12 @@ GET /api/badges/retry-queue/stats
 ```
 **Returns**: System-wide retry statistics and health metrics
 
+### Pending Badge Claims
+```http
+GET /api/badges/pending?limit=100&offset=0
+```
+**Returns**: All active/pending mints with enhanced metadata and pagination
+
 ### Manual Event Recovery
 ```http
 POST /api/badges/retry-queue/manual-recovery
@@ -164,6 +171,12 @@ Content-Type: application/json
 }
 ```
 **Returns**: Recovery results and processed event count
+
+### Enhanced Health Check
+```http
+GET /health
+```
+**Returns**: System health including badge retry queue depth and error counts
 
 ## 🔄 System Startup Sequence
 

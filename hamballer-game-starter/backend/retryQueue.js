@@ -4,7 +4,7 @@ const { db } = require('./config/database');
 // Retry configuration
 const RETRY_CONFIG = {
   maxRetries: 5,
-  baseDelay: 5000, // 5 seconds
+  baseDelay: 15000, // 15 seconds (matches frontend polling cadence)
   maxDelay: 300000, // 5 minutes
   backoffMultiplier: 2,
   jitterRange: 0.1 // ±10% random jitter
@@ -161,7 +161,9 @@ class RetryQueue {
         createdAt: new Date(attempt.created_at)
       });
 
-      console.log(`📋 RetryQueue: Added badge claim attempt for ${playerAddress} (${xpEarned} XP, TokenId: ${tokenId})`);
+      console.log(`📋 RetryQueue: Added badge claim attempt for ${playerAddress}`);
+      console.log(`   └─ Badge Metadata: ${xpEarned} XP → TokenId ${tokenId} (Season ${season})`);
+      console.log(`   └─ Attempt ID: ${attempt.id}`);
       
       // Start processing if not already running
       if (!this.processing) {
@@ -247,6 +249,9 @@ class RetryQueue {
           await this.markAttemptCompleted(attempt.id, result.txHash);
           this.queue.delete(attempt.id);
           console.log(`✅ RetryQueue: Successfully minted badge for ${attempt.playerAddress}`);
+          console.log(`   └─ Badge: ${attempt.xpEarned} XP → TokenId ${attempt.tokenId} (Season ${attempt.season})`);
+          console.log(`   └─ Contract TX: ${result.txHash}`);
+          console.log(`   └─ Block: ${result.blockNumber}, Gas: ${result.gasUsed}`);
         } else {
           // Failed - increment retry count and update status
           attempt.retryCount++;
@@ -257,10 +262,16 @@ class RetryQueue {
             await this.markAttemptAbandoned(attempt.id, result.error);
             this.queue.delete(attempt.id);
             console.warn(`⚠️ RetryQueue: Abandoned badge mint for ${attempt.playerAddress} after ${RETRY_CONFIG.maxRetries} retries`);
+            console.warn(`   └─ Badge: ${attempt.xpEarned} XP → TokenId ${attempt.tokenId} (Season ${attempt.season})`);
+            console.warn(`   └─ Final Error: ${result.error}`);
           } else {
             // Mark for retry
             await this.markAttemptFailed(attempt.id, result.error, attempt.retryCount);
+            const nextRetryDelay = Math.round(this.calculateRetryDelay(attempt.retryCount) / 1000);
             console.warn(`⚠️ RetryQueue: Badge mint failed for ${attempt.playerAddress}, retry ${attempt.retryCount}/${RETRY_CONFIG.maxRetries}`);
+            console.warn(`   └─ Badge: ${attempt.xpEarned} XP → TokenId ${attempt.tokenId} (Season ${attempt.season})`);
+            console.warn(`   └─ Error: ${result.error}`);
+            console.warn(`   └─ Next retry in ~${nextRetryDelay}s`);
           }
         }
 
@@ -278,7 +289,9 @@ class RetryQueue {
    */
   async mintBadge(attempt) {
     try {
-      console.log(`🎫 RetryQueue: Minting badge for ${attempt.playerAddress} (TokenId: ${attempt.tokenId}, XP: ${attempt.xpEarned})`);
+      console.log(`🎫 RetryQueue: Minting badge for ${attempt.playerAddress}`);
+      console.log(`   └─ Badge: ${attempt.xpEarned} XP → TokenId ${attempt.tokenId} (Season ${attempt.season})`);
+      console.log(`   └─ Attempt: ${attempt.retryCount + 1}/${RETRY_CONFIG.maxRetries + 1}`);
 
       // Check gas price and estimate gas
       const gasPrice = await this.provider.getFeeData();

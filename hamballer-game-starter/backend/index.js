@@ -107,18 +107,62 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development',
-    uptime: process.uptime(),
-    websocket: {
-      clients: wsClients.size,
-      server: wss.readyState === 1 ? 'running' : 'stopped'
+app.get('/health', async (req, res) => {
+  try {
+    // Get retry queue stats
+    const queueStats = retryQueue.getStats();
+    
+    // Get database stats for error counts
+    let badgeRetryStats = {
+      queueDepth: queueStats.queueSize || 0,
+      processing: queueStats.processing || false,
+      initialized: queueStats.initialized || false,
+      errorCounts: {
+        pending: 0,
+        failed: 0,
+        abandoned: 0
+      }
+    };
+
+    if (db) {
+      try {
+        const { data: errorCounts, error } = await db
+          .from('badge_claim_attempts')
+          .select('status')
+          .in('status', ['pending', 'minting', 'failed', 'abandoned']);
+
+        if (!error && errorCounts) {
+          badgeRetryStats.errorCounts = {
+            pending: errorCounts.filter(a => a.status === 'pending' || a.status === 'minting').length,
+            failed: errorCounts.filter(a => a.status === 'failed').length,
+            abandoned: errorCounts.filter(a => a.status === 'abandoned').length
+          };
+        }
+      } catch (dbError) {
+        console.warn('⚠️ Could not fetch retry stats for health check:', dbError.message);
+      }
     }
-  });
+
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      uptime: process.uptime(),
+      websocket: {
+        clients: wsClients.size,
+        server: wss.readyState === 1 ? 'running' : 'stopped'
+      },
+      badgeRetrySystem: badgeRetryStats
+    });
+  } catch (error) {
+    console.error('❌ Health check error:', error.message);
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // API Routes

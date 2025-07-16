@@ -100,7 +100,7 @@ CREATE TABLE missed_run_events (
 ```javascript
 const RETRY_CONFIG = {
   maxRetries: 5,
-  baseDelay: 5000, // 5 seconds
+  baseDelay: 15000, // 15 seconds (matches frontend polling cadence)
   maxDelay: 300000, // 5 minutes
   backoffMultiplier: 2,
   jitterRange: 0.1 // ±10% random jitter
@@ -109,11 +109,11 @@ const RETRY_CONFIG = {
 
 ### Retry Delay Calculation
 The system uses exponential backoff with jitter:
-- Retry 1: ~5 seconds
-- Retry 2: ~10 seconds  
-- Retry 3: ~20 seconds
-- Retry 4: ~40 seconds
-- Retry 5: ~80 seconds
+- Retry 1: ~15 seconds
+- Retry 2: ~30 seconds  
+- Retry 3: ~60 seconds
+- Retry 4: ~120 seconds
+- Retry 5: ~240 seconds
 
 ### Status Lifecycle
 ```
@@ -178,6 +178,17 @@ POST /api/badges/retry-queue/manual-recovery
 ```
 
 Triggers manual recovery for specific block range.
+
+### Pending Badge Claims
+```javascript
+GET /api/badges/pending?limit=100&offset=0
+```
+
+Returns all active/pending badge mint attempts with enhanced metadata:
+- Badge metadata (XP awarded, token ID, season, tier)
+- Retry metadata (current retry, next retry time)
+- Status grouping for easy filtering
+- Pagination support (max 100 per request)
 
 ## 🔧 Configuration
 
