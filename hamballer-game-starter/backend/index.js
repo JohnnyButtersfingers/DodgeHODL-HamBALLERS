@@ -8,6 +8,8 @@ require('dotenv').config();
 const { listenRunCompleted } = require('./listeners/runCompletedListener');
 const { retryQueue } = require('./retryQueue');
 const { eventRecovery } = require('./eventRecovery');
+const { achievementsService } = require('./services/achievementsService');
+const { xpVerifierService } = require('./services/xpVerifierService');
 
 // Route imports
 const runRoutes = require('./routes/run');
@@ -15,6 +17,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const dbpPriceRoutes = require('./routes/dbp-price');
 const leaderboardRoutes = require('./routes/leaderboard');
 const badgesRoutes = require('./routes/badges');
+const achievementsRoutes = require('./routes/achievements');
 
 // Controllers
 const { broadcastUpdate } = require('./controllers/runLogger');
@@ -171,6 +174,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/dbp-price', dbpPriceRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/badges', badgesRoutes);
+app.use('/api/achievements', achievementsRoutes);
 
 // WebSocket broadcast utility endpoint (for testing)
 app.post('/api/broadcast', (req, res) => {
@@ -229,14 +233,28 @@ async function gracefulShutdown(signal) {
   console.log(`🛑 ${signal} received, shutting down gracefully`);
   
   try {
+    // Shutdown achievements service
+    if (achievementsService) {
+      console.log('🛑 Shutting down achievements service...');
+      // No explicit shutdown needed for achievements service
+    }
+    
+    // Shutdown XPVerifier service
+    if (xpVerifierService) {
+      console.log('🛑 Shutting down XPVerifier service...');
+      xpVerifierService.shutdown();
+    }
+    
     // Shutdown retry queue
     if (retryQueue) {
+      console.log('🛑 Shutting down retry queue...');
       retryQueue.shutdown();
     }
     
     // Stop run completed listener
     const { shutdown: shutdownListener } = require('./listeners/runCompletedListener');
     if (shutdownListener) {
+      console.log('🛑 Shutting down run completed listener...');
       shutdownListener();
     }
     
@@ -271,7 +289,31 @@ server.listen(PORT, HOST, async () => {
   console.log(`🎮 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⚡ WebSocket clients: ${wsClients.size}`);
   
-  console.log('\n🔧 Initializing Badge Systems...');
+  console.log('\n🔧 Initializing Phase 8 Systems...');
+  
+  // Initialize achievements service
+  try {
+    const achievementsInitialized = await achievementsService.initialize();
+    if (achievementsInitialized) {
+      console.log('✅ Achievements service initialized');
+    } else {
+      console.log('⚠️ Achievements service not initialized - limited functionality');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize achievements service:', error.message);
+  }
+  
+  // Initialize XPVerifier service
+  try {
+    const xpVerifierInitialized = await xpVerifierService.initialize();
+    if (xpVerifierInitialized) {
+      console.log('✅ XPVerifier service initialized');
+    } else {
+      console.log('⚠️ XPVerifier service not initialized - ZK-proof verification disabled');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize XPVerifier service:', error.message);
+  }
   
   // Initialize retry queue system
   try {
@@ -299,6 +341,17 @@ server.listen(PORT, HOST, async () => {
     }
   } catch (error) {
     console.error('❌ Failed to initialize event recovery:', error.message);
+  }
+  
+  // Periodic cleanup of expired ZK-proof claims
+  if (xpVerifierService.initialized) {
+    setInterval(async () => {
+      try {
+        await xpVerifierService.cleanupExpiredClaims();
+      } catch (error) {
+        console.error('❌ Error cleaning up expired claims:', error.message);
+      }
+    }, 60 * 60 * 1000); // Every hour
   }
   
   // Initialize run completed listener

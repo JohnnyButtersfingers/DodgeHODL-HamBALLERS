@@ -1,5 +1,7 @@
 const { ethers } = require('ethers');
 const { db } = require('./config/database');
+const { xpVerifierService } = require('./services/xpVerifierService');
+const { achievementsService } = require('./services/achievementsService');
 
 // Retry configuration
 const RETRY_CONFIG = {
@@ -128,9 +130,10 @@ class RetryQueue {
   /**
    * Add a new badge claim attempt to the queue
    */
-  async addAttempt(playerAddress, runId, xpEarned, season) {
+  async addAttempt(playerAddress, runId, xpEarned, season, options = {}) {
     try {
       const tokenId = this.calculateTokenId(xpEarned);
+      const requiresZKProof = this.shouldRequireZKProof(xpEarned, tokenId);
       
       // Create attempt record in database
       const { data: attempt, error } = await db
@@ -141,7 +144,7 @@ class RetryQueue {
           xp_earned: xpEarned,
           season: season,
           token_id: tokenId,
-          status: 'pending'
+          status: requiresZKProof ? 'pending_verification' : 'pending'
         })
         .select()
         .single();
@@ -158,11 +161,14 @@ class RetryQueue {
         tokenId: tokenId,
         retryCount: 0,
         lastRetryAt: null,
-        createdAt: new Date(attempt.created_at)
+        createdAt: new Date(attempt.created_at),
+        requiresZKProof,
+        zkProofData: options.zkProofData || null
       });
 
       console.log(`📋 RetryQueue: Added badge claim attempt for ${playerAddress}`);
       console.log(`   └─ Badge Metadata: ${xpEarned} XP → TokenId ${tokenId} (Season ${season})`);
+      console.log(`   └─ ZK-Proof Required: ${requiresZKProof ? 'Yes' : 'No'}`);
       console.log(`   └─ Attempt ID: ${attempt.id}`);
       
       // Start processing if not already running
@@ -175,6 +181,15 @@ class RetryQueue {
       console.error('❌ RetryQueue: Failed to add attempt:', error.message);
       return null;
     }
+  }
+
+  /**
+   * Determine if ZK-proof verification is required for a badge claim
+   */
+  shouldRequireZKProof(xpEarned, tokenId) {
+    // Require ZK-proof for high-value claims
+    // Epic (75+ XP) and Legendary (100+ XP) badges require verification
+    return xpEarned >= 75 || tokenId >= 3;
   }
 
   /**
@@ -238,6 +253,27 @@ class RetryQueue {
           }
         }
 
+        // Check if ZK-proof verification is required and not yet completed
+        if (attempt.requiresZKProof && !attempt.zkProofVerified) {
+          if (!attempt.zkProofData) {
+            console.warn(`⚠️ RetryQueue: ZK-proof required but not provided for ${attempt.playerAddress}`);
+            await this.updateAttemptStatus(attempt.id, 'pending_verification', 'ZK-proof required for high-value claim');
+            continue; // Skip this attempt until proof is provided
+          }
+          
+          // Verify ZK-proof first
+          const verificationResult = await this.verifyZKProof(attempt);
+          if (!verificationResult.success) {
+            console.warn(`⚠️ RetryQueue: ZK-proof verification failed for ${attempt.playerAddress}: ${verificationResult.error}`);
+            await this.updateAttemptStatus(attempt.id, 'failed', `ZK-proof verification failed: ${verificationResult.error}`);
+            continue;
+          }
+          
+          // Mark as verified and continue to minting
+          attempt.zkProofVerified = true;
+          console.log(`✅ RetryQueue: ZK-proof verified for ${attempt.playerAddress}`);
+        }
+
         // Update status to 'minting'
         await this.updateAttemptStatus(attempt.id, 'minting');
         
@@ -252,6 +288,21 @@ class RetryQueue {
           console.log(`   └─ Badge: ${attempt.xpEarned} XP → TokenId ${attempt.tokenId} (Season ${attempt.season})`);
           console.log(`   └─ Contract TX: ${result.txHash}`);
           console.log(`   └─ Block: ${result.blockNumber}, Gas: ${result.gasUsed}`);
+          
+          // Check for badge-related achievements after successful minting
+          if (achievementsService.initialized) {
+            try {
+              await achievementsService.checkBadgeMintAchievements(attempt.playerAddress, {
+                tokenId: attempt.tokenId,
+                xpEarned: attempt.xpEarned,
+                season: attempt.season,
+                txHash: result.txHash
+              });
+            } catch (achievementError) {
+              console.error('❌ Error checking badge achievements:', achievementError.message);
+              // Don't fail the badge minting process due to achievement errors
+            }
+          }
         } else {
           // Failed - increment retry count and update status
           attempt.retryCount++;
@@ -281,6 +332,49 @@ class RetryQueue {
       } catch (error) {
         console.error('❌ RetryQueue: Error processing attempt:', error.message);
       }
+    }
+  }
+
+  /**
+   * Verify ZK-proof for high-value badge claims
+   */
+  async verifyZKProof(attempt) {
+    try {
+      if (!xpVerifierService.initialized) {
+        return {
+          success: false,
+          error: 'XPVerifier service not initialized'
+        };
+      }
+
+      console.log(`🔍 RetryQueue: Verifying ZK-proof for ${attempt.playerAddress} (${attempt.xpEarned} XP)`);
+
+      // Submit proof for verification
+      const verificationResult = await xpVerifierService.submitProofClaim(
+        attempt.playerAddress,
+        attempt.zkProofData
+      );
+
+      if (verificationResult.success && verificationResult.verified) {
+        console.log(`✅ RetryQueue: ZK-proof verified for ${attempt.playerAddress}`);
+        return {
+          success: true,
+          txHash: verificationResult.txHash,
+          claimId: verificationResult.claimId
+        };
+      } else {
+        return {
+          success: false,
+          error: verificationResult.error || 'Proof verification failed'
+        };
+      }
+
+    } catch (error) {
+      console.error(`❌ RetryQueue: ZK-proof verification error for ${attempt.playerAddress}:`, error.message);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 

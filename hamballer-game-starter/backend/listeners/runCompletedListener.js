@@ -1,6 +1,7 @@
 const { ethers } = require('ethers');
 const { handleRunCompletion } = require('../controllers/runLogger');
 const { retryQueue } = require('../retryQueue');
+const { achievementsService } = require('../services/achievementsService');
 
 // Contract ABIs
 const HODL_MANAGER_ABI = [
@@ -263,6 +264,16 @@ async function handleRunCompletedEvent(user, xpEarned, cpEarned, dbpMinted, dura
 
     // Handle existing run completion logic
     const runResult = await handleRunCompletion(runData);
+
+    // Check for achievements after run completion
+    if (achievementsService.initialized) {
+      try {
+        console.log(`🏆 Checking achievements for ${user} after run completion`);
+        await achievementsService.checkRunCompletionAchievements(user, runData);
+      } catch (error) {
+        console.error('❌ Error checking run completion achievements:', error.message);
+      }
+    }
 
     // Queue XPBadge minting using the enhanced retry queue system
     if (retryQueue.isInitialized) {
