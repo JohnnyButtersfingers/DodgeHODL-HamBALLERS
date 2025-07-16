@@ -23,8 +23,10 @@ const Leaderboard = () => {
   const [wsFailure, setWsFailure] = useState(false);
   const [category, setCategory] = useState('total_dbp'); // total_dbp, best_score, total_runs, win_rate, contract_xp
   const [timeframe, setTimeframe] = useState('all'); // 24h, 7d, 30d, all
+  const [xpViewMode, setXpViewMode] = useState('total'); // 'supabase', 'contract', 'total'
   const pollingInterval = useRef(null);
   const lastWsUpdate = useRef(Date.now());
+  const isPolling = useRef(false);
 
   useEffect(() => {
     fetchLeaderboard();
@@ -35,16 +37,22 @@ const Leaderboard = () => {
     const monitorWebSocket = () => {
       if (wsConnected) {
         lastWsUpdate.current = Date.now();
-        setWsFailure(false);
-        // Clear polling if WebSocket is working
-        if (pollingInterval.current) {
-          clearInterval(pollingInterval.current);
-          pollingInterval.current = null;
+        
+        // If we just reconnected, clear fallback polling and wsFailure
+        if (wsFailure || pollingInterval.current) {
+          console.log('WebSocket reconnected, stopping fallback polling');
+          setWsFailure(false);
+          stopFallbackPolling();
+          // Fetch fresh data after reconnection
+          if (!loading) {
+            fetchLeaderboard();
+          }
         }
       } else {
         // Check if WebSocket has been down for more than 10 seconds
         const timeSinceLastUpdate = Date.now() - lastWsUpdate.current;
-        if (timeSinceLastUpdate > 10000 && !wsFailure) {
+        if (timeSinceLastUpdate > 10000 && !wsFailure && !pollingInterval.current) {
+          console.log('WebSocket failed, starting fallback polling');
           setWsFailure(true);
           startFallbackPolling();
         }
@@ -53,7 +61,7 @@ const Leaderboard = () => {
 
     const interval = setInterval(monitorWebSocket, 5000);
     return () => clearInterval(interval);
-  }, [wsConnected, wsFailure]);
+  }, [wsConnected, wsFailure, loading]);
 
   // Update when WebSocket receives live stats
   useEffect(() => {
@@ -74,10 +82,14 @@ const Leaderboard = () => {
   }, []);
 
   const startFallbackPolling = () => {
-    if (pollingInterval.current) return; // Already polling
+    if (pollingInterval.current) {
+      console.log('Polling already active, skipping');
+      return; // Already polling
+    }
     
     console.warn('WebSocket failed, starting fallback polling');
     pollingInterval.current = setInterval(() => {
+      console.log('Fallback polling fetch');
       fetchLeaderboard();
     }, 30000); // Poll every 30 seconds
   };
@@ -90,7 +102,14 @@ const Leaderboard = () => {
   };
 
   const fetchLeaderboard = async () => {
+    // Prevent double-fetching during polling
+    if (isPolling.current && loading) {
+      console.log('Skipping fetch - already in progress');
+      return;
+    }
+    
     setLoading(true);
+    isPolling.current = true;
     try {
       // Fetch Supabase leaderboard data
       const response = await apiFetch(
@@ -131,6 +150,7 @@ const Leaderboard = () => {
       console.error('Error fetching leaderboard:', error);
     } finally {
       setLoading(false);
+      isPolling.current = false;
     }
   };
 
@@ -243,12 +263,50 @@ const Leaderboard = () => {
     );
   };
 
-  const getRankIcon = (rank) => {
+  const getRankIcon = (rank, animated = true) => {
+    const baseClasses = animated ? 'animate-pulse' : '';
     switch (rank) {
-      case 1: return '🥇';
-      case 2: return '🥈';
-      case 3: return '🥉';
-      default: return `#${rank}`;
+      case 1: return (
+        <div className="flex items-center space-x-2">
+          <span className={`text-2xl ${animated ? 'animate-bounce' : ''}`}>🏆</span>
+          <span className="text-yellow-400 font-bold">CHAMPION</span>
+        </div>
+      );
+      case 2: return (
+        <div className="flex items-center space-x-2">
+          <span className={`text-2xl ${baseClasses}`}>🥈</span>
+          <span className="text-gray-300 font-bold">2nd</span>
+        </div>
+      );
+      case 3: return (
+        <div className="flex items-center space-x-2">
+          <span className={`text-2xl ${baseClasses}`}>🥉</span>
+          <span className="text-orange-400 font-bold">3rd</span>
+        </div>
+      );
+      default: return (
+        <div className="flex items-center justify-center">
+          <span className="text-gray-400 font-bold text-lg">#{rank}</span>
+        </div>
+      );
+    }
+  };
+
+  const getXpDisplayValue = (player) => {
+    switch (xpViewMode) {
+      case 'supabase': return player.totalXp - (player.contractXp || 0);
+      case 'contract': return player.contractXp || 0;
+      case 'total': return player.totalXp || 0;
+      default: return player.totalXp || 0;
+    }
+  };
+
+  const getXpDisplayLabel = () => {
+    switch (xpViewMode) {
+      case 'supabase': return '🟩 Supabase XP';
+      case 'contract': return '🟦 Contract XP';
+      case 'total': return '🟨 Total XP';
+      default: return 'Total XP';
     }
   };
 
@@ -283,20 +341,42 @@ const Leaderboard = () => {
           </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Category Filter */}
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="total_dbp">Total DBP Earned</option>
-            <option value="best_score">Best Score</option>
-            <option value="total_runs">Total Runs</option>
-            <option value="win_rate">Win Rate</option>
-            <option value="contract_xp">Contract XP</option>
-            <option value="total_xp">Total XP</option>
-          </select>
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* XP View Toggle */}
+          <div className="flex bg-gray-800 rounded-lg p-1">
+            {[
+              { key: 'supabase', label: '🟩 Supabase', color: 'bg-green-500' },
+              { key: 'contract', label: '🟦 Contract', color: 'bg-blue-500' },
+              { key: 'total', label: '🟨 Total', color: 'bg-yellow-500' }
+            ].map(mode => (
+              <button
+                key={mode.key}
+                onClick={() => setXpViewMode(mode.key)}
+                className={`px-3 py-2 rounded text-sm font-medium transition-all ${
+                  xpViewMode === mode.key
+                    ? `${mode.color} text-white shadow-lg`
+                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Category Filter */}
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="total_dbp">Total DBP Earned</option>
+              <option value="best_score">Best Score</option>
+              <option value="total_runs">Total Runs</option>
+              <option value="win_rate">Win Rate</option>
+              <option value="contract_xp">Contract XP</option>
+              <option value="total_xp">Total XP</option>
+            </select>
 
           {/* Timeframe Filter */}
           <select
@@ -310,15 +390,16 @@ const Leaderboard = () => {
             <option value="all">All Time</option>
           </select>
 
-          <button
-            onClick={fetchLeaderboard}
-            disabled={loading}
-            className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white px-4 py-2 rounded text-sm transition-colors"
-          >
-            {loading ? 'Loading...' : 'Refresh'}
-          </button>
+                                    <button
+                onClick={fetchLeaderboard}
+                disabled={loading}
+                className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white px-4 py-2 rounded text-sm transition-colors"
+              >
+                {loading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
       {/* Leaderboard Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -337,11 +418,13 @@ const Leaderboard = () => {
         </div>
 
         <div className="bg-gray-800/50 rounded-lg p-6 text-center">
-          <div className="text-3xl mb-2">⚡</div>
-          <div className="text-2xl font-bold text-purple-400">
-            {leaderboardData.reduce((sum, p) => sum + (p.contractXp || 0), 0).toLocaleString()}
+          <div className="text-3xl mb-2">
+            {xpViewMode === 'supabase' ? '🟩' : xpViewMode === 'contract' ? '🟦' : '🟨'}
           </div>
-          <div className="text-gray-400">Contract XP</div>
+          <div className="text-2xl font-bold text-purple-400">
+            {leaderboardData.reduce((sum, p) => sum + getXpDisplayValue(p), 0).toLocaleString()}
+          </div>
+          <div className="text-gray-400">{getXpDisplayLabel()}</div>
         </div>
         
         <div className="bg-gray-800/50 rounded-lg p-6 text-center">
@@ -376,18 +459,18 @@ const Leaderboard = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[800px]">
               <thead className="bg-gray-700/50">
                 <tr className="text-gray-300 text-sm">
-                  <th className="text-left py-4 px-6">Rank</th>
-                  <th className="text-left py-4 px-6">Player</th>
-                  <th className="text-left py-4 px-6">Level</th>
-                  <th className="text-left py-4 px-6">{getCategoryLabel(category)}</th>
-                  <th className="text-left py-4 px-6">Total DBP</th>
-                  <th className="text-left py-4 px-6">Contract XP</th>
-                  <th className="text-left py-4 px-6">Total XP</th>
-                  <th className="text-left py-4 px-6">Runs</th>
-                  <th className="text-left py-4 px-6">Win Rate</th>
+                  <th className="text-left py-4 px-3 md:px-6 min-w-[120px]">Rank</th>
+                  <th className="text-left py-4 px-3 md:px-6 min-w-[150px]">Player</th>
+                  <th className="text-left py-4 px-3 md:px-6">Level</th>
+                  <th className="text-left py-4 px-3 md:px-6">{getCategoryLabel(category)}</th>
+                  <th className="text-left py-4 px-3 md:px-6">Total DBP</th>
+                  <th className="text-left py-4 px-3 md:px-6">Contract XP</th>
+                  <th className="text-left py-4 px-3 md:px-6">Total XP</th>
+                  <th className="text-left py-4 px-3 md:px-6">Runs</th>
+                  <th className="text-left py-4 px-3 md:px-6">Win Rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
@@ -404,11 +487,11 @@ const Leaderboard = () => {
                           : 'hover:bg-gray-700/30'
                       }`}
                     >
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-3 md:px-6">
                         <div className="flex items-center space-x-2">
-                          <span className="text-2xl">
-                            {getRankIcon(rank)}
-                          </span>
+                          <div className="min-w-[100px]">
+                            {getRankIcon(rank, rank <= 3)}
+                          </div>
                           {isUser && (
                             <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">
                               YOU
@@ -417,16 +500,16 @@ const Leaderboard = () => {
                         </div>
                       </td>
                       
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-3 md:px-6">
                         <div>
-                          <div className="font-mono text-white">
+                          <div className="font-mono text-white text-sm">
                             {player.address.slice(0, 6)}...{player.address.slice(-4)}
                           </div>
                           {renderPlayerBadges(player.badges)}
                         </div>
                       </td>
                       
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-3 md:px-6">
                         <div className="flex items-center space-x-2">
                           <span className="text-yellow-400 font-bold">
                             {player.level || 1}
@@ -435,21 +518,21 @@ const Leaderboard = () => {
                         </div>
                       </td>
                       
-                      <td className="py-4 px-6">
-                        <span className="text-white font-semibold">
+                      <td className="py-4 px-3 md:px-6">
+                        <span className="text-white font-semibold text-sm">
                           {getCategoryValue(player, category)}
                         </span>
                       </td>
                       
-                      <td className="py-4 px-6">
-                        <span className="text-green-400 font-medium">
+                      <td className="py-4 px-3 md:px-6">
+                        <span className="text-green-400 font-medium text-sm">
                           {player.totalDbpEarned?.toFixed(2) || '0.00'}
                         </span>
                       </td>
 
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-3 md:px-6">
                         <div className="flex items-center space-x-1">
-                          <span className="text-purple-400">
+                          <span className="text-purple-400 text-sm">
                             {player.contractXp?.toLocaleString() || '0'}
                           </span>
                           {player.contractXp > 0 && (
@@ -458,27 +541,27 @@ const Leaderboard = () => {
                         </div>
                       </td>
 
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-3 md:px-6">
                         <div className="flex items-center space-x-1">
-                          <span className="text-blue-300 font-medium">
+                          <span className="text-blue-300 font-medium text-sm">
                             {player.totalXp?.toLocaleString() || '0'}
                           </span>
                           <span className="text-xs text-blue-200">XP</span>
                         </div>
                       </td>
                       
-                      <td className="py-4 px-6">
-                        <span className="text-blue-400">
+                      <td className="py-4 px-3 md:px-6">
+                        <span className="text-blue-400 text-sm">
                           {player.totalRuns || 0}
                         </span>
                       </td>
                       
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-3 md:px-6">
                         <div className="flex items-center space-x-2">
-                          <span className="text-white">
+                          <span className="text-white text-sm">
                             {player.winRate?.toFixed(1) || '0.0'}%
                           </span>
-                          <div className="w-16 bg-gray-600 rounded-full h-2">
+                          <div className="w-12 md:w-16 bg-gray-600 rounded-full h-2">
                             <div 
                               className="bg-green-400 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${Math.min(player.winRate || 0, 100)}%` }}

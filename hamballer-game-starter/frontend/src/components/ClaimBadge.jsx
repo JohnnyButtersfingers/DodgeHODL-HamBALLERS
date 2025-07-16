@@ -16,9 +16,11 @@ const ClaimBadge = () => {
   const { contracts } = useContracts();
   const [unclaimedBadges, setUnclaimedBadges] = useState([]);
   const [failedBadges, setFailedBadges] = useState([]);
+  const [pendingBadges, setPendingBadges] = useState([]);
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState({});
   const [retrying, setRetrying] = useState({});
+  const [showDevPanel, setShowDevPanel] = useState(false);
 
   useEffect(() => {
     if (address) {
@@ -31,11 +33,21 @@ const ClaimBadge = () => {
     
     setLoading(true);
     try {
-      const response = await apiFetch(`/api/badges/status/${address}`);
-      if (response.ok) {
-        const data = await response.json();
+      // Fetch both status and pending badges
+      const [statusResponse, pendingResponse] = await Promise.all([
+        apiFetch(`/api/badges/status/${address}`),
+        apiFetch(`/api/badges/pending/${address}`)
+      ]);
+      
+      if (statusResponse.ok) {
+        const data = await statusResponse.json();
         setUnclaimedBadges(data.unclaimed || []);
         setFailedBadges(data.failed || []);
+      }
+
+      if (pendingResponse.ok) {
+        const pendingData = await pendingResponse.json();
+        setPendingBadges(pendingData.pending || []);
       }
     } catch (error) {
       console.error('Error fetching badge status:', error);
@@ -62,6 +74,30 @@ const ClaimBadge = () => {
           failureReason: 'Network timeout',
           retryCount: 2,
           createdAt: new Date(Date.now() - 86400000).toISOString()
+        },
+        {
+          id: 'run-789',
+          tokenId: 3,
+          xpEarned: 85,
+          season: 1,
+          runId: 'run-789',
+          status: 'failed',
+          failureReason: 'Gas estimation failed',
+          retryCount: 5, // Max retries reached
+          createdAt: new Date(Date.now() - 172800000).toISOString()
+        }
+      ]);
+      setPendingBadges([
+        {
+          id: 'run-pending-1',
+          tokenId: 1,
+          xpEarned: 30,
+          season: 1,
+          runId: 'run-pending-1',
+          retryCount: 1,
+          nextRetryAt: new Date(Date.now() + 300000).toISOString(),
+          queuePosition: 1,
+          createdAt: new Date(Date.now() - 300000).toISOString()
         }
       ]);
     } finally {
@@ -187,6 +223,23 @@ const ClaimBadge = () => {
     return 'Just now';
   };
 
+  const getTimeUntil = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = date - now;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffMs <= 0) return 'Ready';
+    if (diffHours > 0) return `${diffHours}h ${diffMins % 60}m`;
+    if (diffMins > 0) return `${diffMins}m`;
+    return 'Soon';
+  };
+
+  const isRetryLimitReached = (badge) => {
+    return (badge.retryCount || 0) >= 5;
+  };
+
   if (!address) {
     return (
       <div className="bg-gray-800/50 rounded-lg p-8 text-center">
@@ -206,13 +259,29 @@ const ClaimBadge = () => {
           <p className="text-gray-400 mt-1">Claim and manage your XP badges</p>
         </div>
         
-        <button
-          onClick={fetchBadgeStatus}
-          disabled={loading}
-          className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white px-4 py-2 rounded text-sm transition-colors"
-        >
-          {loading ? 'Loading...' : 'Refresh'}
-        </button>
+        <div className="flex items-center space-x-3">
+          {/* Dev Panel Toggle (only show in development) */}
+          {import.meta.env.DEV && (
+            <button
+              onClick={() => setShowDevPanel(!showDevPanel)}
+              className={`px-3 py-2 rounded text-sm transition-colors ${
+                showDevPanel 
+                  ? 'bg-yellow-500 text-black' 
+                  : 'bg-gray-600 text-white hover:bg-gray-500'
+              }`}
+            >
+              🔧 Dev Panel
+            </button>
+          )}
+          
+          <button
+            onClick={fetchBadgeStatus}
+            disabled={loading}
+            className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white px-4 py-2 rounded text-sm transition-colors"
+          >
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Badge Types Reference */}
@@ -228,6 +297,64 @@ const ClaimBadge = () => {
           ))}
         </div>
       </div>
+
+      {/* Dev Panel - Pending Badges Queue */}
+      {import.meta.env.DEV && showDevPanel && (
+        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg overflow-hidden">
+          <div className="p-6 border-b border-yellow-500/30">
+            <h2 className="text-xl font-semibold text-white">
+              🔧 Dev Panel - Pending Badge Queue ({pendingBadges.length})
+            </h2>
+            <p className="text-gray-400 text-sm mt-1">
+              Badges currently in the retry queue system
+            </p>
+          </div>
+          
+          {pendingBadges.length === 0 ? (
+            <div className="p-6 text-center text-gray-400">
+              <div className="text-2xl mb-2">⚡</div>
+              <div>No badges in pending queue</div>
+            </div>
+          ) : (
+            <div className="divide-y divide-yellow-500/30">
+              {pendingBadges.map(badge => {
+                const badgeType = getBadgeType(badge.tokenId);
+                return (
+                  <div key={badge.id} className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-2xl">{badgeType.emoji}</div>
+                        <div>
+                          <div className={`font-semibold ${badgeType.color}`}>
+                            {badgeType.name} Badge
+                          </div>
+                          <div className="text-sm text-gray-400">
+                            {badge.xpEarned} XP • Run: {badge.runId}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-yellow-400">
+                          Queue #{badge.queuePosition || 'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Next: {getTimeUntil(badge.nextRetryAt)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-yellow-900/30 rounded p-2 text-xs">
+                      <div className="grid grid-cols-2 gap-2 text-gray-300">
+                        <div>Retry Count: {badge.retryCount || 0}/5</div>
+                        <div>Created: {getTimeSince(badge.createdAt)}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Unclaimed Badges */}
       {unclaimedBadges.length > 0 && (
@@ -290,16 +417,34 @@ const ClaimBadge = () => {
           <div className="divide-y divide-red-500/30">
             {failedBadges.map(badge => {
               const badgeType = getBadgeType(badge.tokenId);
-              const canRetry = (badge.retryCount || 0) < 5;
+              const canRetry = !isRetryLimitReached(badge);
+              const isUnclaimable = isRetryLimitReached(badge);
               
               return (
                 <div key={badge.id} className="p-6">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-4">
-                      <div className="text-3xl opacity-50">{badgeType.emoji}</div>
+                      <div className="relative">
+                        <div className={`text-3xl ${isUnclaimable ? 'opacity-30' : 'opacity-50'}`}>
+                          {badgeType.emoji}
+                        </div>
+                        {isUnclaimable && (
+                          <div className="absolute -top-1 -right-1 text-red-500 text-lg">❌</div>
+                        )}
+                      </div>
                       <div>
-                        <div className={`font-semibold ${badgeType.color}`}>
-                          {badgeType.name} Badge
+                        <div className="flex items-center space-x-2">
+                          <div className={`font-semibold ${badgeType.color} ${isUnclaimable ? 'opacity-50' : ''}`}>
+                            {badgeType.name} Badge
+                          </div>
+                          {isUnclaimable && (
+                            <div 
+                              className="text-red-400 text-sm font-medium cursor-help"
+                              title="Retry limit reached. Contact support or refresh your run."
+                            >
+                              (Unclaimable)
+                            </div>
+                          )}
                         </div>
                         <div className="text-sm text-gray-400">
                           {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
@@ -311,7 +456,7 @@ const ClaimBadge = () => {
                     </div>
                     
                     <div className="flex space-x-2">
-                      {canRetry && (
+                      {canRetry ? (
                         <button
                           onClick={() => retryBadgeClaim(badge)}
                           disabled={retrying[badge.id]}
@@ -319,24 +464,33 @@ const ClaimBadge = () => {
                         >
                           {retrying[badge.id] ? 'Retrying...' : 'Retry'}
                         </button>
+                      ) : (
+                        <div 
+                          className="bg-red-600/30 text-red-300 px-3 py-1 rounded text-sm cursor-help"
+                          title="Retry limit reached. Contact support or refresh your run."
+                        >
+                          Max Retries
+                        </div>
                       )}
                       
                       <button
                         onClick={() => abandonBadge(badge.id)}
                         className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors"
                       >
-                        Abandon
+                        {isUnclaimable ? 'Dismiss' : 'Abandon'}
                       </button>
                     </div>
                   </div>
                   
-                  <div className="bg-red-900/30 rounded p-3">
+                  <div className={`rounded p-3 ${isUnclaimable ? 'bg-red-900/50' : 'bg-red-900/30'}`}>
                     <div className="text-sm text-red-400 mb-1">
                       <strong>Error:</strong> {badge.failureReason || 'Unknown error'}
                     </div>
                     <div className="text-xs text-gray-400">
                       Retry attempts: {badge.retryCount || 0}/5
-                      {!canRetry && ' (Max retries reached)'}
+                      {isUnclaimable && (
+                        <span className="text-red-300"> • Contact support for assistance</span>
+                      )}
                     </div>
                   </div>
                 </div>
