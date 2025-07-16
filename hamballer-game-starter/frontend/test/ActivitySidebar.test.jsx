@@ -18,6 +18,11 @@ vi.mock('../src/components/BadgeProgress', () => ({
   )
 }));
 
+// Mock useXp context
+vi.mock('../src/contexts/XpContext', () => ({
+  useXp: () => ({ xp: 42 })
+}));
+
 describe('ActivitySidebar', () => {
   const mockPlayerStats = {
     runsToday: 5,
