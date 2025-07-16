@@ -52,6 +52,24 @@ async function main() {
   console.log("✅ XPBadge deployed to:", badgeAddr);
   saveFrontend("XPBadge", badgeAddr);
 
+  // Deploy verifier contract (placeholder)
+  console.log("\n🔎 Deploying Groth16Verifier...");
+  const Groth16Verifier = await ethers.getContractFactory("Groth16Verifier");
+  const grothVerifier = await Groth16Verifier.deploy();
+  await grothVerifier.waitForDeployment();
+  const verifierAddr = await grothVerifier.getAddress();
+  console.log("✅ Groth16Verifier deployed to:", verifierAddr);
+  saveFrontend("Groth16Verifier", verifierAddr);
+
+  // Deploy XPVerifier linked to verifier contract
+  console.log("\n🛡 Deploying XPVerifier...");
+  const XPVerifier = await ethers.getContractFactory("XPVerifier");
+  const xpVerifier = await XPVerifier.deploy(verifierAddr);
+  await xpVerifier.waitForDeployment();
+  const xpVerifierAddr = await xpVerifier.getAddress();
+  console.log("✅ XPVerifier deployed to:", xpVerifierAddr);
+  saveFrontend("XPVerifier", xpVerifierAddr);
+
   // Deploy HODL Manager
   console.log("\n🎯 Deploying HODL Manager...");
   const HODLManager = await ethers.getContractFactory("HODLManager");
