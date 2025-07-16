@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../contexts/WalletContext';
 
 const StatOverlay = ({ stats }) => {
@@ -49,11 +50,12 @@ const StatOverlay = ({ stats }) => {
           <span className="text-gray-300">Level {stats.level || 1}</span>
           <span className="text-purple-400">{stats.currentXp || 0} / {stats.xpToNext || 100} XP</span>
         </div>
-        <div className="w-full bg-gray-700 rounded-full h-2">
-          <div 
-            className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${Math.min(xpProgress, 100)}%` }}
-          ></div>
+        <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+          <motion.div
+            className="bg-gradient-to-r from-purple-500 to-blue-500 h-2"
+            animate={{ width: `${Math.min(xpProgress, 100)}%` }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+          />
         </div>
       </div>
 

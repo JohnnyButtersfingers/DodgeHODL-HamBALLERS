@@ -9,6 +9,7 @@ import RunResultDisplay from './RunResultDisplay';
 import GameSummary from './GameSummary';
 import ActivitySidebar from './ActivitySidebar';
 import useRunEngine from '../lib/useRunEngine';
+import useRunCompletedListener from '../hooks/useRunCompletedListener';
 
 const GameView = () => {
   const { address, isConnected } = useWallet();
@@ -27,6 +28,8 @@ const GameView = () => {
 
   const [selectedMoves, setSelectedMoves] = useState([]);
   const engine = useRunEngine(selectedMoves);
+  // Listen to on-chain RunCompleted events for real-time XP/badge refresh
+  useRunCompletedListener(address);
   const [gamePhase, setGamePhase] = useState('setup'); // setup, running, decision, complete
   const [hodlDecision, setHodlDecision] = useState(null);
 
