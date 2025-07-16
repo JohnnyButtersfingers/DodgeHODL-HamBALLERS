@@ -150,6 +150,51 @@ curl -X POST http://localhost:3001/api/run/start \
   -d '{"playerAddress":"0x742d35Cc6634C0532925a3b8D5c3Ba4F8b0A87F6","seed":"0x1234..."}'
 ```
 
+## 🎫 XPBadge NFT Minting
+
+The backend automatically mints XPBadge NFTs when players complete runs, based on their XP earned.
+
+### Badge Tiers
+- **Participation Badge (ID: 0)**: 1-24 XP earned
+- **Common Badge (ID: 1)**: 25-49 XP earned  
+- **Rare Badge (ID: 2)**: 50-74 XP earned
+- **Epic Badge (ID: 3)**: 75-99 XP earned
+- **Legendary Badge (ID: 4)**: 100+ XP earned
+
+### Configuration
+Required environment variables:
+```bash
+XPBADGE_ADDRESS=0x...  # XPBadge contract address
+XPBADGE_MINTER_PRIVATE_KEY=0x...  # Wallet with MINTER_ROLE
+```
+
+### Process Flow
+1. **RunCompleted Event**: Triggered by HODLManager contract
+2. **XP Calculation**: Using existing XP pipeline (`calculateXPReward`)
+3. **Badge Tier**: Determined by XP amount earned
+4. **Minting Queue**: Transactions processed sequentially to avoid nonce conflicts
+5. **Database Update**: Supabase updated with tokenId and transaction hash
+6. **Error Handling**: Failed mints logged but don't block run completion
+
+### Database Integration
+XPBadge information is stored in the `run_logs` table:
+```sql
+xp_badge_token_id INTEGER  -- Badge tier (0-4)
+xp_badge_tx_hash VARCHAR(66)  -- Mint transaction hash
+xp_badge_minted_at TIMESTAMPTZ  -- Mint timestamp
+```
+
+Analytics view available:
+```sql
+SELECT * FROM xp_badge_summary WHERE player_address = '0x...';
+```
+
+### Monitoring
+- Real-time logging of minting attempts and results
+- Gas estimation and price monitoring
+- Transaction confirmation tracking (2 blocks)
+- Queue status and processing metrics
+
 ## 📈 Performance
 
 - Database queries optimized with indexes

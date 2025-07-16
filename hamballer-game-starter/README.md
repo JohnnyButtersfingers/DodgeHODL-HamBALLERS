@@ -68,6 +68,45 @@ pnpm deploy:contracts
 pnpm build:all
 ```
 
+## 🔧 Offline Development
+
+For environments without internet access, you can set up dependencies using a local pnpm store:
+
+### Method 1: Using pnpm store export (pnpm v9 and earlier)
+```bash
+# On a machine with internet access:
+pnpm install:all
+pnpm store export ./scripts/pnpm-store/
+```
+
+### Method 2: Manual store copy (recommended for pnpm v10+)
+```bash
+# On a machine with internet access:
+pnpm install:all
+
+# Find your store location
+pnpm store path
+
+# Copy the store contents
+cp -r $(pnpm store path)/* ./scripts/pnpm-store/
+
+# Transfer the project with pnpm-store/ to offline environment
+```
+
+### Installing in offline environment
+```bash
+# Set up offline environment
+export PNPM_STORE_DIR="./scripts/pnpm-store"
+
+# Install dependencies offline
+pnpm install:all --offline
+
+# Or use the helper script
+./scripts/setup-offline.sh
+```
+
+**Note**: The `pnpm store export` command may not work properly in pnpm v10+. Use the manual copy method as a reliable fallback.
+
 ## 🔧 Technology Stack
 
 - **Contracts**: Hardhat + OpenZeppelin + Abstract Blockchain
