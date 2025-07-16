@@ -20,6 +20,7 @@ const ClaimBadge = () => {
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState({});
   const [retrying, setRetrying] = useState({});
+  const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
   const [showDevPanel, setShowDevPanel] = useState(false);
 
   useEffect(() => {
@@ -130,8 +131,8 @@ const ClaimBadge = () => {
         if (result.success) {
           // Remove from unclaimed badges
           setUnclaimedBadges(prev => prev.filter(b => b.id !== badge.id));
-          // Show success message
-          console.log('Badge claimed successfully:', result.txHash);
+          // Toast confirmation
+          setToast({ type: 'success', message: `Badge minted! Tx: ${result.txHash.slice(0, 10)}...` });
         } else {
           throw new Error(result.error || 'Failed to claim badge');
         }
@@ -140,6 +141,7 @@ const ClaimBadge = () => {
       }
     } catch (error) {
       console.error('Error claiming badge:', error);
+      setToast({ type: 'error', message: error.message || 'Badge mint failed' });
       // Move to failed badges if not already there
       if (!failedBadges.find(b => b.id === badge.id)) {
         setFailedBadges(prev => [...prev, {
@@ -181,7 +183,7 @@ const ClaimBadge = () => {
         if (result.success) {
           // Remove from failed badges
           setFailedBadges(prev => prev.filter(b => b.id !== badge.id));
-          console.log('Badge retry successful:', result.txHash);
+          setToast({ type: 'success', message: `Retry succeeded! Tx: ${result.txHash.slice(0,10)}...` });
         } else {
           throw new Error(result.error || 'Retry failed');
         }
@@ -190,6 +192,7 @@ const ClaimBadge = () => {
       }
     } catch (error) {
       console.error('Error retrying badge claim:', error);
+      setToast({ type: 'error', message: error.message || 'Retry failed' });
       // Update retry count
       setFailedBadges(prev => prev.map(b => 
         b.id === badge.id 
@@ -250,8 +253,25 @@ const ClaimBadge = () => {
     );
   }
 
+  /* Toast message display */
+  const renderToast = () => {
+    if (!toast) return null;
+    const bg = toast.type === 'success' ? 'bg-green-600/90' : 'bg-red-600/90';
+    return (
+      <div className={`${bg} fixed bottom-6 right-6 z-50 text-white px-4 py-3 rounded-lg shadow-lg animate-in slide-in-from-bottom duration-300`}
+        role="alert" aria-live="assertive">
+        <div className="flex items-center space-x-2">
+          <span>{toast.type === 'success' ? '✅' : '⚠️'}</span>
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+        <button onClick={() => setToast(null)} className="absolute top-1 right-1 text-white/70 hover:text-white">×</button>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
+      {renderToast()}
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>

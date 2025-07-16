@@ -1,5 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import StatOverlay from './StatOverlay';
+import BadgeProgress from './BadgeProgress';
 
 const ActivitySidebar = memo(({ playerStats, boosts }) => {
   // Memoize activity data to prevent unnecessary recalculations
@@ -42,6 +43,11 @@ const ActivitySidebar = memo(({ playerStats, boosts }) => {
       {/* Stats Overview */}
       <div className="animate-in slide-in-from-right duration-500">
         <StatOverlay stats={playerStats} />
+      </div>
+
+      {/* Badge Progress */}
+      <div className="animate-in slide-in-from-right duration-500 delay-75">
+        <BadgeProgress currentXp={playerStats?.currentXp || 0} />
       </div>
       
       {/* Recent Activity */}

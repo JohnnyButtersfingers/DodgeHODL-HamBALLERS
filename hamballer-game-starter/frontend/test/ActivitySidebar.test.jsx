@@ -11,6 +11,13 @@ vi.mock('../src/components/StatOverlay', () => ({
   )
 }));
 
+// Mock BadgeProgress component
+vi.mock('../src/components/BadgeProgress', () => ({
+  default: ({ currentXp }) => (
+    <div data-testid="badge-progress">BadgeProgress XP: {currentXp}</div>
+  )
+}));
+
 describe('ActivitySidebar', () => {
   const mockPlayerStats = {
     runsToday: 5,
