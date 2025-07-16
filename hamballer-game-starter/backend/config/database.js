@@ -21,7 +21,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY &&
 }
 
 // Blockchain provider and contracts
-let provider, dbpToken, boostNFT, hodlManager;
+let provider, dbpToken, boostNFT, hodlManager, xpBadge;
 
 // Contract ABIs (simplified - replace with your actual ABIs after compilation)
 const DBP_TOKEN_ABI = [
@@ -46,6 +46,11 @@ const HODL_MANAGER_ABI = [
   "function totalDBPMinted() view returns (uint256)"
 ];
 
+const XP_BADGE_ABI = [
+  "function mintBadge(address to, uint256 xpValue, uint256 seasonId) returns (uint256)",
+  "function hasMinted(address user, uint256 seasonId) view returns (bool)"
+];
+
 // Initialize blockchain connection
 function initializeContracts() {
   try {
@@ -64,6 +69,10 @@ function initializeContracts() {
     
     if (process.env.HODL_MANAGER_ADDRESS) {
       hodlManager = new ethers.Contract(process.env.HODL_MANAGER_ADDRESS, HODL_MANAGER_ABI, provider);
+    }
+
+    if (process.env.XP_BADGE_ADDRESS) {
+      xpBadge = new ethers.Contract(process.env.XP_BADGE_ADDRESS, XP_BADGE_ABI, provider);
     }
 
     console.log('✅ Blockchain contracts initialized');
@@ -248,6 +257,25 @@ const db = {
     return data;
   },
 
+  async logMintFailure(playerAddress, xpValue, reason) {
+    if (!supabase) {
+      console.log('📝 Mock: Logging mint failure', playerAddress, xpValue, reason);
+      return;
+    }
+
+    const { error } = await supabase.from('event_logs').insert([
+      {
+        event_type: 'badge_mint_failed',
+        player_address: playerAddress,
+        event_data: { xpValue, reason },
+      },
+    ]);
+
+    if (error) {
+      console.error('❌ Database error logging mint failure:', error);
+    }
+  },
+
   // Add supabase reference for direct access when needed
   supabase
 };
@@ -339,6 +367,16 @@ const contracts = {
     } catch (error) {
       console.error('❌ Error fetching global stats:', error);
       return null;
+    }
+  },
+
+  async hasMintedBadge(playerAddress, seasonId = 1) {
+    if (!xpBadge) return false;
+    try {
+      return await xpBadge.hasMinted(playerAddress, seasonId);
+    } catch (error) {
+      console.error('❌ Error checking badge mint:', error);
+      return false;
     }
   }
 };

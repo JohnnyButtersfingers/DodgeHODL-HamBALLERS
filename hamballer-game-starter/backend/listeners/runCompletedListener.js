@@ -1,5 +1,6 @@
 const { ethers } = require('ethers');
 const { db } = require('../config/database');
+const { addToQueue } = require('../services/retryQueue');
 
 const ABI = [
   'event RunCompleted(address indexed user, uint256 xpEarned)'
@@ -20,6 +21,8 @@ async function mintBadgeWithRetry(badge, user, xp, retries = 1, delayMs = 5000) 
       await new Promise((res) => setTimeout(res, delayMs));
       return mintBadgeWithRetry(badge, user, xp, retries - 1, delayMs);
     }
+    await db.logMintFailure(user, xp.toString(), err.message);
+    addToQueue(badge, user, xp);
     return false;
   }
 }

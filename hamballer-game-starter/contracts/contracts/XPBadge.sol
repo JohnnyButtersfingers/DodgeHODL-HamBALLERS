@@ -21,6 +21,7 @@ contract XPBadge is ERC721, AccessControl {
 
     Counters.Counter private _tokenIdCounter;
     mapping(uint256 => BadgeInfo) public badgeInfo;
+    mapping(uint256 => mapping(address => bool)) private _minted;
 
     struct ChildToken {
         address contractAddress;
@@ -37,11 +38,17 @@ contract XPBadge is ERC721, AccessControl {
     }
 
     function mintBadge(address to, uint256 xpValue, uint256 seasonId) external onlyRole(MINTER_ROLE) returns (uint256) {
+        require(!_minted[seasonId][to], "XPBadge: already minted");
         _tokenIdCounter.increment();
         uint256 tokenId = _tokenIdCounter.current();
         _safeMint(to, tokenId);
         badgeInfo[tokenId] = BadgeInfo({xpValue: xpValue, seasonId: seasonId});
+        _minted[seasonId][to] = true;
         return tokenId;
+    }
+
+    function hasMinted(address user, uint256 seasonId) external view returns (bool) {
+        return _minted[seasonId][user];
     }
 
     // Basic child composition support (ERC-998 lite)
