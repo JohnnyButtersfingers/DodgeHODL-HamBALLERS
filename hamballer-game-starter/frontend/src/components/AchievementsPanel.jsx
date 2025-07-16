@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../contexts/WalletContext';
 import { useXp } from '../contexts/XpContext';
+import { useWebSocket } from '../services/useWebSocketService';
 import { apiFetch } from '../services/useApiService';
 
 const ACHIEVEMENT_TYPES = {
@@ -56,6 +57,7 @@ const ACHIEVEMENT_DEFINITIONS = [
 const AchievementsPanel = () => {
   const { address } = useWallet();
   const { xp, addXp } = useXp();
+  const { connected: wsConnected, sendMessage } = useWebSocket();
   const [achievements, setAchievements] = useState([]);
   const [playerStats, setPlayerStats] = useState({});
   const [loading, setLoading] = useState(false);
@@ -66,13 +68,66 @@ const AchievementsPanel = () => {
   useEffect(() => {
     if (address) {
       fetchAchievements();
+      
+      // Subscribe to achievement updates via WebSocket
+      if (wsConnected) {
+        sendMessage({ 
+          type: 'subscribe', 
+          channel: 'achievements',
+          playerAddress: address 
+        });
+      }
     }
-  }, [address]);
+  }, [address, wsConnected]);
 
   useEffect(() => {
     // Check for new achievements when stats change
     checkForNewAchievements();
+    
+    // Also check server-side for achievements
+    if (address && Object.keys(playerStats).length > 0) {
+      checkForNewAchievementsFromServer();
+    }
   }, [playerStats, xp]);
+
+  // Listen for WebSocket achievement updates
+  useEffect(() => {
+    const handleAchievementUpdate = (event) => {
+      const { type, data } = event.detail || {};
+      
+      if (type === 'achievement_unlocked' && data?.playerAddress === address) {
+        const achievementDef = ACHIEVEMENT_DEFINITIONS.find(a => a.id === data.achievementId);
+        if (achievementDef) {
+          setNewUnlocks([achievementDef]);
+          setTimeout(() => {
+            fetchAchievements(); // Refresh achievements
+          }, 3000);
+        }
+      } else if (type === 'stats_updated' && data?.playerAddress === address) {
+        setPlayerStats(prev => ({ ...prev, ...data.stats }));
+      }
+    };
+
+    // Listen for WebSocket messages forwarded as custom events
+    window.addEventListener('websocket_message', handleAchievementUpdate);
+    
+    return () => {
+      window.removeEventListener('websocket_message', handleAchievementUpdate);
+    };
+  }, [address]);
+
+  // Periodic check for achievements every 30 seconds
+  useEffect(() => {
+    if (!address) return;
+
+    const interval = setInterval(() => {
+      if (Object.keys(playerStats).length > 0) {
+        checkForNewAchievementsFromServer();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [address, playerStats]);
 
   const fetchAchievements = async () => {
     setLoading(true);
@@ -85,15 +140,35 @@ const AchievementsPanel = () => {
       if (achievementsResponse.ok) {
         const data = await achievementsResponse.json();
         setAchievements(data.achievements || []);
+      } else {
+        console.warn('Achievements API not available, using mock data');
+        setAchievements([
+          { id: 'first_run', unlockedAt: new Date().toISOString(), claimed: true },
+          { id: 'win_streak_5', unlockedAt: new Date(Date.now() - 86400000).toISOString(), claimed: false },
+          { id: 'badge_collector', unlockedAt: null, claimed: false }
+        ]);
       }
 
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setPlayerStats(statsData.stats || {});
+      } else {
+        console.warn('Player stats API not available, using mock data');
+        setPlayerStats({
+          totalRuns: 25,
+          totalXp: 2500,
+          winStreak: 3,
+          currentStreak: 3,
+          maxWinStreak: 7,
+          totalBadges: 3,
+          legendaryBadges: 1,
+          perfectRuns: 2,
+          fastestRun: 28
+        });
       }
     } catch (error) {
       console.error('Error fetching achievements:', error);
-      // Mock data for development
+      // Fallback to mock data on error
       setAchievements([
         { id: 'first_run', unlockedAt: new Date().toISOString(), claimed: true },
         { id: 'win_streak_5', unlockedAt: new Date(Date.now() - 86400000).toISOString(), claimed: false },
@@ -112,6 +187,28 @@ const AchievementsPanel = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkForNewAchievementsFromServer = async () => {
+    try {
+      const response = await apiFetch(`/api/achievements/check/${address}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentStats: playerStats })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.newAchievements && data.newAchievements.length > 0) {
+          setNewUnlocks(data.newAchievements);
+          setTimeout(() => {
+            fetchAchievements(); // Refresh all data
+          }, 3000);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for new achievements:', error);
     }
   };
 

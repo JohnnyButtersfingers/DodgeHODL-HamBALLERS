@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../contexts/WalletContext';
 import { useXp } from '../contexts/XpContext';
+import { useWebSocket } from '../services/useWebSocketService';
 import { apiFetch } from '../services/useApiService';
 
 const PACK_RARITIES = {
@@ -141,19 +142,57 @@ const PACK_DEFINITIONS = [
 
 const LootPacks = () => {
   const { address } = useWallet();
-  const { xp, addXp } = useXp();
+  const { xp, addXp, refreshXpData } = useXp();
+  const { connected: wsConnected, sendMessage } = useWebSocket();
   const [playerPacks, setPlayerPacks] = useState([]);
   const [playerCurrency, setPlayerCurrency] = useState({ xp: 0, dbp: 0 });
+  const [playerInventory, setPlayerInventory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [openingPack, setOpeningPack] = useState(null);
   const [packRewards, setPackRewards] = useState([]);
   const [showRewards, setShowRewards] = useState(false);
+  const [purchasing, setPurchasing] = useState({});
 
   useEffect(() => {
     if (address) {
       fetchPlayerPacks();
       fetchPlayerCurrency();
+      fetchPlayerInventory();
+      
+      // Subscribe to lootpack updates via WebSocket
+      if (wsConnected) {
+        sendMessage({ 
+          type: 'subscribe', 
+          channel: 'lootpacks',
+          playerAddress: address 
+        });
+      }
     }
+  }, [address, wsConnected]);
+
+  // Listen for WebSocket lootpack updates
+  useEffect(() => {
+    const handleLootpackUpdate = (event) => {
+      const { type, data } = event.detail || {};
+      
+      if (type === 'lootpack_updated' && data?.playerAddress === address) {
+        if (data.type === 'pack_purchased') {
+          fetchPlayerPacks();
+          fetchPlayerCurrency();
+        } else if (data.type === 'pack_opened') {
+          fetchPlayerPacks();
+          fetchPlayerInventory();
+        } else if (data.type === 'currency_updated') {
+          setPlayerCurrency(prev => ({ ...prev, ...data.currency }));
+        }
+      }
+    };
+
+    window.addEventListener('websocket_message', handleLootpackUpdate);
+    
+    return () => {
+      window.removeEventListener('websocket_message', handleLootpackUpdate);
+    };
   }, [address]);
 
   const fetchPlayerPacks = async () => {
@@ -163,10 +202,16 @@ const LootPacks = () => {
       if (response.ok) {
         const data = await response.json();
         setPlayerPacks(data.packs || []);
+      } else {
+        console.warn('LootPacks API not available, using mock data');
+        setPlayerPacks([
+          { id: 'starter_pack', quantity: 2, earnedAt: new Date().toISOString() },
+          { id: 'bronze_pack', quantity: 1, earnedAt: new Date(Date.now() - 86400000).toISOString() },
+          { id: 'silver_pack', quantity: 0 }
+        ]);
       }
     } catch (error) {
       console.error('Error fetching player packs:', error);
-      // Mock data for development
       setPlayerPacks([
         { id: 'starter_pack', quantity: 2, earnedAt: new Date().toISOString() },
         { id: 'bronze_pack', quantity: 1, earnedAt: new Date(Date.now() - 86400000).toISOString() },
@@ -174,6 +219,40 @@ const LootPacks = () => {
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPlayerInventory = async () => {
+    try {
+      const response = await apiFetch(`/api/player/inventory/${address}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPlayerInventory(data.inventory || []);
+      } else {
+        console.warn('Inventory API not available, using mock data');
+        setPlayerInventory([
+          { 
+            id: 'xp_boost_1',
+            type: 'XP_BOOST', 
+            value: 2.0, 
+            duration: 3, 
+            rarity: 'COMMON',
+            quantity: 2,
+            earnedAt: new Date().toISOString()
+          },
+          { 
+            id: 'dbp_bonus_1',
+            type: 'DBP_BONUS', 
+            value: 500, 
+            rarity: 'RARE',
+            quantity: 1,
+            earnedAt: new Date(Date.now() - 86400000).toISOString()
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching player inventory:', error);
+      setPlayerInventory([]);
     }
   };
 
@@ -193,7 +272,9 @@ const LootPacks = () => {
 
   const purchasePack = async (packId) => {
     const pack = PACK_DEFINITIONS.find(p => p.id === packId);
-    if (!pack || playerCurrency.xp < pack.cost) return;
+    if (!pack || playerCurrency.xp < pack.cost || purchasing[packId]) return;
+
+    setPurchasing(prev => ({ ...prev, [packId]: true }));
 
     try {
       const response = await apiFetch('/api/lootpacks/purchase', {
@@ -207,17 +288,55 @@ const LootPacks = () => {
       });
 
       if (response.ok) {
-        fetchPlayerPacks();
-        fetchPlayerCurrency();
+        const result = await response.json();
+        
+        // Update local state immediately for better UX
+        setPlayerCurrency(prev => ({ 
+          ...prev, 
+          xp: prev.xp - pack.cost 
+        }));
+        
+        setPlayerPacks(prev => {
+          const existing = prev.find(p => p.id === packId);
+          if (existing) {
+            return prev.map(p => 
+              p.id === packId 
+                ? { ...p, quantity: p.quantity + 1 }
+                : p
+            );
+          } else {
+            return [...prev, { 
+              id: packId, 
+              quantity: 1, 
+              earnedAt: new Date().toISOString() 
+            }];
+          }
+        });
+
+        // Refresh from server to ensure consistency
+        setTimeout(() => {
+          fetchPlayerPacks();
+          fetchPlayerCurrency();
+          refreshXpData(); // Update XP context
+        }, 500);
+
+        console.log('Pack purchased successfully:', result);
+      } else {
+        const error = await response.json();
+        console.error('Purchase failed:', error.message);
       }
     } catch (error) {
       console.error('Error purchasing pack:', error);
+    } finally {
+      setPurchasing(prev => ({ ...prev, [packId]: false }));
     }
   };
 
   const openPack = async (packId) => {
     const pack = PACK_DEFINITIONS.find(p => p.id === packId);
-    if (!pack) return;
+    const playerPack = playerPacks.find(p => p.id === packId);
+    
+    if (!pack || !playerPack || playerPack.quantity <= 0) return;
 
     setOpeningPack(pack);
 
@@ -237,43 +356,85 @@ const LootPacks = () => {
         if (response.ok) {
           const data = await response.json();
           rewards = data.rewards || [];
+          
+          // Update pack quantity immediately
+          setPlayerPacks(prev => prev.map(p => 
+            p.id === packId 
+              ? { ...p, quantity: Math.max(0, p.quantity - 1) }
+              : p
+          ));
+          
+          // Add rewards to inventory
+          setPlayerInventory(prev => {
+            const updatedInventory = [...prev];
+            rewards.forEach(reward => {
+              const existing = updatedInventory.find(item => 
+                item.type === reward.type && 
+                item.value === reward.value &&
+                item.rarity === reward.rarity
+              );
+              
+              if (existing) {
+                existing.quantity = (existing.quantity || 1) + 1;
+              } else {
+                updatedInventory.push({
+                  ...reward,
+                  id: `${reward.type}_${Date.now()}_${Math.random()}`,
+                  quantity: 1,
+                  earnedAt: new Date().toISOString()
+                });
+              }
+            });
+            return updatedInventory;
+          });
+          
+          console.log('Pack opened successfully:', rewards);
         } else {
-          // Mock rewards for development
+          console.warn('Pack opening API not available, using mock rewards');
           rewards = generateMockRewards(pack);
         }
 
         setPackRewards(rewards);
         setShowRewards(true);
         
-        // Trigger XP notifications for XP rewards
+        // Trigger XP notifications for rewards
         rewards.forEach(reward => {
           if (reward.type === 'XP_BOOST' && reward.value > 1) {
-            // Convert XP boost to notification - could be base XP for getting the boost
-            addXp(50, 'lootpack'); // Base XP for getting an XP boost
+            addXp(50, 'lootpack');
           } else if (reward.type === 'DBP_BONUS') {
-            // Small XP reward for DBP bonus
             addXp(25, 'lootpack');
+          } else if (reward.type === 'BADGE') {
+            addXp(75, 'lootpack');
+          } else if (reward.type === 'BOOST_NFT') {
+            addXp(100, 'lootpack');
+          } else if (reward.type === 'COSMETIC') {
+            addXp(30, 'lootpack');
           }
         });
         
-        fetchPlayerPacks();
-        fetchPlayerCurrency();
-              } catch (error) {
-          console.error('Error opening pack:', error);
-          // Show mock rewards on error
-          const mockRewards = generateMockRewards(pack);
-          setPackRewards(mockRewards);
-          setShowRewards(true);
-          
-          // Trigger XP notifications for mock rewards too
-          mockRewards.forEach(reward => {
-            if (reward.type === 'XP_BOOST' && reward.value > 1) {
-              addXp(50, 'lootpack');
-            } else if (reward.type === 'DBP_BONUS') {
-              addXp(25, 'lootpack');
-            }
-          });
-        }
+        // Refresh data from server
+        setTimeout(() => {
+          fetchPlayerPacks();
+          fetchPlayerCurrency();
+          fetchPlayerInventory();
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Error opening pack:', error);
+        // Show mock rewards on error
+        const mockRewards = generateMockRewards(pack);
+        setPackRewards(mockRewards);
+        setShowRewards(true);
+        
+        // Trigger XP notifications for mock rewards too
+        mockRewards.forEach(reward => {
+          if (reward.type === 'XP_BOOST' && reward.value > 1) {
+            addXp(50, 'lootpack');
+          } else if (reward.type === 'DBP_BONUS') {
+            addXp(25, 'lootpack');
+          }
+        });
+      }
 
       setOpeningPack(null);
     }, 3000);
@@ -524,6 +685,62 @@ const LootPacks = () => {
         )}
       </div>
 
+      {/* Player Inventory */}
+      {playerInventory.length > 0 && (
+        <div className="bg-gray-800/50 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">🎒 Your Inventory</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {playerInventory.map(item => {
+              const rarityConfig = getRarityConfig(item.rarity);
+              const lootType = LOOT_TYPES[item.type];
+              
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`p-4 rounded-lg border-2 ${rarityConfig.borderColor} bg-gradient-to-br from-gray-800 to-gray-900`}
+                >
+                  <div className="text-center">
+                    <div className="text-3xl mb-2">{lootType.icon}</div>
+                    <h4 className={`font-bold ${rarityConfig.textColor} mb-1`}>
+                      {lootType.name}
+                    </h4>
+                    <p className="text-white text-sm mb-2">
+                      {formatItemValue(item)}
+                    </p>
+                    
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={`${rarityConfig.textColor} uppercase`}>
+                        {rarityConfig.name}
+                      </span>
+                      <span className="bg-blue-500 text-white px-2 py-1 rounded">
+                        x{item.quantity || 1}
+                      </span>
+                    </div>
+                    
+                    {item.type === 'XP_BOOST' && (
+                      <div className="mt-3">
+                        <div className="w-full bg-gray-600 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-purple-400 to-blue-500 h-2 rounded-full"
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          Ready to use
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Pack Store */}
       <div className="bg-gray-800/50 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-white mb-4">🛒 Pack Store</h3>
@@ -584,14 +801,17 @@ const LootPacks = () => {
 
                   <button
                     onClick={() => purchasePack(pack.id)}
-                    disabled={!canAfford}
+                    disabled={!canAfford || purchasing[pack.id]}
                     className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                      canAfford
+                      canAfford && !purchasing[pack.id]
                         ? 'bg-blue-500 hover:bg-blue-600 text-white'
                         : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     }`}
                   >
-                    {pack.cost === 0 ? 'Claim Free Pack' : 'Purchase Pack'}
+                    {purchasing[pack.id] 
+                      ? 'Purchasing...' 
+                      : (pack.cost === 0 ? 'Claim Free Pack' : 'Purchase Pack')
+                    }
                   </button>
                 </div>
               </motion.div>

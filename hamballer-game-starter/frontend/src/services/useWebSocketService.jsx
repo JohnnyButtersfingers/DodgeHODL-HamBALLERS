@@ -54,8 +54,30 @@ export const WebSocketProvider = ({ children }) => {
             case 'price':
               setDbpPrice(data.data);
               break;
+            case 'achievements':
+              // Forward achievement updates as custom events
+              window.dispatchEvent(new CustomEvent('websocket_message', {
+                detail: { type: 'achievement_unlocked', data: data.data }
+              }));
+              break;
+            case 'lootpacks':
+              // Forward lootpack updates as custom events
+              window.dispatchEvent(new CustomEvent('websocket_message', {
+                detail: { type: 'lootpack_updated', data: data.data }
+              }));
+              break;
+            case 'player_stats':
+              // Forward stats updates as custom events
+              window.dispatchEvent(new CustomEvent('websocket_message', {
+                detail: { type: 'stats_updated', data: data.data }
+              }));
+              break;
             default:
               console.log('Unknown channel:', data.channel);
+              // Forward unknown messages as custom events for extensibility
+              window.dispatchEvent(new CustomEvent('websocket_message', {
+                detail: { type: data.channel, data: data.data }
+              }));
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
