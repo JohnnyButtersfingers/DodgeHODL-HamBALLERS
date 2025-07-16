@@ -20,5 +20,11 @@ export default defineConfig({
     rollupOptions: {
       external: ['@safe-globalThis/safe-apps-provider', '@safe-globalThis/safe-apps-sdk']
     }
-  }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './test/setup.js',
+    include: ['test/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', 'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+  },
 })
