@@ -6,6 +6,8 @@ const { WebSocketServer } = require('ws');
 const { createServer } = require('http');
 require('dotenv').config();
 const { listenRunCompleted } = require('./listeners/runCompletedListener');
+const { retryQueue } = require('./retryQueue');
+const { eventRecovery } = require('./eventRecovery');
 
 // Route imports
 const runRoutes = require('./routes/run');
@@ -179,32 +181,87 @@ app.use('*', (req, res) => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
+async function gracefulShutdown(signal) {
+  console.log(`🛑 ${signal} received, shutting down gracefully`);
+  
+  try {
+    // Shutdown retry queue
+    if (retryQueue) {
+      retryQueue.shutdown();
+    }
+    
+    // Stop run completed listener
+    const { shutdown: shutdownListener } = require('./listeners/runCompletedListener');
+    if (shutdownListener) {
+      shutdownListener();
+    }
+    
+    // Close server
+    server.close(() => {
+      console.log('✅ Server closed');
+      process.exit(0);
+    });
+    
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      console.log('❌ Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+    
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error.message);
+    process.exit(1);
+  }
+}
 
-process.on('SIGINT', () => {
-  console.log('🛑 SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, async () => {
   console.log('🚀 HamBaller.xyz Backend Server Started');
   console.log(`📡 HTTP API: http://${HOST}:${PORT}`);
   console.log(`🔌 WebSocket: ws://${HOST}:${PORT}/socket`);
   console.log(`🎮 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⚡ WebSocket clients: ${wsClients.size}`);
+  
+  console.log('\n🔧 Initializing Badge Systems...');
+  
+  // Initialize retry queue system
+  try {
+    const retryQueueInitialized = await retryQueue.initialize();
+    if (retryQueueInitialized) {
+      console.log('✅ Badge retry queue system initialized');
+    } else {
+      console.log('⚠️ Badge retry queue system not initialized - limited functionality');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize retry queue:', error.message);
+  }
+  
+  // Initialize event recovery system
+  try {
+    const eventRecoveryInitialized = await eventRecovery.initialize();
+    if (eventRecoveryInitialized) {
+      console.log('✅ Event recovery system initialized');
+      
+      // Perform missed event recovery on startup
+      console.log('🔍 Starting missed event recovery...');
+      await eventRecovery.recoverMissedEvents();
+    } else {
+      console.log('⚠️ Event recovery system not initialized');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize event recovery:', error.message);
+  }
+  
+  // Initialize run completed listener
+  console.log('🎧 Starting RunCompleted listener...');
   listenRunCompleted();
+  
+  console.log('\n✅ All systems initialized');
 });
 
 module.exports = { app, server, wss };
