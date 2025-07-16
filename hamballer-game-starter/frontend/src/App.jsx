@@ -12,6 +12,7 @@ import GameView from './components/GameView';
 import Dashboard from './components/Dashboard';
 import ReplayViewer from './components/ReplayViewer';
 import Leaderboard from './components/Leaderboard';
+import ClaimBadge from './components/ClaimBadge';
 
 // Hooks
 import { WebSocketProvider } from './services/useWebSocketService';
@@ -115,6 +116,7 @@ function App() {
                         <Route index element={<GameView />} />
                         <Route path="dashboard" element={<Dashboard />} />
                         <Route path="leaderboard" element={<Leaderboard />} />
+                        <Route path="badges" element={<ClaimBadge />} />
                         <Route path="replay/:runId?" element={<ReplayViewer />} />
                       </Route>
                     </Routes>
