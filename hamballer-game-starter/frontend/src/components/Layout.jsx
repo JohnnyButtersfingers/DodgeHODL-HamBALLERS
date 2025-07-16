@@ -4,6 +4,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useWebSocket } from '../services/useWebSocketService';
 import PriceTicker from './PriceTicker';
 import XpNotifications from './XpNotifications';
+import DemoControls from './DemoControls';
 
 const Layout = () => {
   const location = useLocation();
@@ -138,6 +139,9 @@ const Layout = () => {
 
       {/* XP Notifications Overlay */}
       <XpNotifications />
+      
+      {/* Demo Controls (Development Only) */}
+      <DemoControls />
     </div>
   );
 };
