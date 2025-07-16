@@ -14,6 +14,15 @@ const RunResultDisplay = ({ run, onPlayAgain }) => {
         {run.xpGained > 0 && (
           <p className="text-blue-400 mt-2">+{run.xpGained} XP</p>
         )}
+        {run.mintStatus && (
+          <p className={
+            run.mintStatus === 'success' ? 'text-green-400 mt-2' : 'text-red-400 mt-2'
+          }>
+            {run.mintStatus === 'success'
+              ? 'XPBadge minted successfully'
+              : 'XPBadge mint failed'}
+          </p>
+        )}
       </div>
       <button
         onClick={onPlayAgain}

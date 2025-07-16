@@ -8,6 +8,22 @@ const BADGE_ABI = [
   'function mintBadge(address to, uint256 xpValue, uint256 seasonId) returns (uint256)'
 ];
 
+async function mintBadgeWithRetry(badge, user, xp, retries = 1, delayMs = 5000) {
+  try {
+    const tx = await badge.mintBadge(user, xp, 1);
+    if (tx.wait) await tx.wait();
+    return true;
+  } catch (err) {
+    console.error('Failed to mint XPBadge:', err.message);
+    if (retries > 0) {
+      console.log('Retrying XPBadge mint...');
+      await new Promise((res) => setTimeout(res, delayMs));
+      return mintBadgeWithRetry(badge, user, xp, retries - 1, delayMs);
+    }
+    return false;
+  }
+}
+
 function listenRunCompleted() {
   const rpc = process.env.ABSTRACT_RPC_URL;
   const manager = process.env.HODL_MANAGER_ADDRESS;
@@ -30,12 +46,11 @@ function listenRunCompleted() {
     try {
       await db.updateXP(user, xp.toString());
       if (badge) {
-        try {
-          const tx = await badge.mintBadge(user, xp, 1);
-          await tx.wait();
+        const success = await mintBadgeWithRetry(badge, user, xp, 1);
+        if (success) {
           console.log(`Minted XPBadge to ${user}`);
-        } catch (err) {
-          console.error('Failed to mint XPBadge:', err.message);
+        } else {
+          console.error('Failed to mint XPBadge after retry');
         }
       }
     } catch (err) {
@@ -44,5 +59,5 @@ function listenRunCompleted() {
   });
 }
 
-module.exports = { listenRunCompleted };
+module.exports = { listenRunCompleted, mintBadgeWithRetry };
 
