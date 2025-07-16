@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS run_logs (
     boosts_used INTEGER[] DEFAULT '{}',
     seed VARCHAR(66), -- Hex string for random seed
     duration INTEGER DEFAULT 0, -- Duration in seconds
+    xp_badge_token_id INTEGER, -- XPBadge NFT token ID (if minted)
+    xp_badge_tx_hash VARCHAR(66), -- Transaction hash for XPBadge mint
+    xp_badge_minted_at TIMESTAMPTZ, -- When the XPBadge was minted
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
