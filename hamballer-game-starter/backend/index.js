@@ -6,6 +6,10 @@ const { WebSocketServer } = require('ws');
 const { createServer } = require('http');
 require('dotenv').config();
 const { listenRunCompleted } = require('./listeners/runCompletedListener');
+const { retryQueue } = require('./retryQueue');
+const { eventRecovery } = require('./eventRecovery');
+const { achievementsService } = require('./services/achievementsService');
+const { xpVerifierService } = require('./services/xpVerifierService');
 
 // Route imports
 const runRoutes = require('./routes/run');
@@ -13,6 +17,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const dbpPriceRoutes = require('./routes/dbp-price');
 const leaderboardRoutes = require('./routes/leaderboard');
 const badgesRoutes = require('./routes/badges');
+const achievementsRoutes = require('./routes/achievements');
 
 // Controllers
 const { broadcastUpdate } = require('./controllers/runLogger');
@@ -105,18 +110,62 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development',
-    uptime: process.uptime(),
-    websocket: {
-      clients: wsClients.size,
-      server: wss.readyState === 1 ? 'running' : 'stopped'
+app.get('/health', async (req, res) => {
+  try {
+    // Get retry queue stats
+    const queueStats = retryQueue.getStats();
+    
+    // Get database stats for error counts
+    let badgeRetryStats = {
+      queueDepth: queueStats.queueSize || 0,
+      processing: queueStats.processing || false,
+      initialized: queueStats.initialized || false,
+      errorCounts: {
+        pending: 0,
+        failed: 0,
+        abandoned: 0
+      }
+    };
+
+    if (db) {
+      try {
+        const { data: errorCounts, error } = await db
+          .from('badge_claim_attempts')
+          .select('status')
+          .in('status', ['pending', 'minting', 'failed', 'abandoned']);
+
+        if (!error && errorCounts) {
+          badgeRetryStats.errorCounts = {
+            pending: errorCounts.filter(a => a.status === 'pending' || a.status === 'minting').length,
+            failed: errorCounts.filter(a => a.status === 'failed').length,
+            abandoned: errorCounts.filter(a => a.status === 'abandoned').length
+          };
+        }
+      } catch (dbError) {
+        console.warn('⚠️ Could not fetch retry stats for health check:', dbError.message);
+      }
     }
-  });
+
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      uptime: process.uptime(),
+      websocket: {
+        clients: wsClients.size,
+        server: wss.readyState === 1 ? 'running' : 'stopped'
+      },
+      badgeRetrySystem: badgeRetryStats
+    });
+  } catch (error) {
+    console.error('❌ Health check error:', error.message);
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // API Routes
@@ -125,6 +174,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/dbp-price', dbpPriceRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/badges', badgesRoutes);
+app.use('/api/achievements', achievementsRoutes);
 
 // WebSocket broadcast utility endpoint (for testing)
 app.post('/api/broadcast', (req, res) => {
@@ -179,32 +229,136 @@ app.use('*', (req, res) => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
+async function gracefulShutdown(signal) {
+  console.log(`🛑 ${signal} received, shutting down gracefully`);
+  
+  try {
+    // Shutdown achievements service
+    if (achievementsService) {
+      console.log('🛑 Shutting down achievements service...');
+      // No explicit shutdown needed for achievements service
+    }
+    
+    // Shutdown XPVerifier service
+    if (xpVerifierService) {
+      console.log('🛑 Shutting down XPVerifier service...');
+      xpVerifierService.shutdown();
+    }
+    
+    // Shutdown retry queue
+    if (retryQueue) {
+      console.log('🛑 Shutting down retry queue...');
+      retryQueue.shutdown();
+    }
+    
+    // Stop run completed listener
+    const { shutdown: shutdownListener } = require('./listeners/runCompletedListener');
+    if (shutdownListener) {
+      console.log('🛑 Shutting down run completed listener...');
+      shutdownListener();
+    }
+    
+    // Close server
+    server.close(() => {
+      console.log('✅ Server closed');
+      process.exit(0);
+    });
+    
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      console.log('❌ Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+    
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error.message);
+    process.exit(1);
+  }
+}
 
-process.on('SIGINT', () => {
-  console.log('🛑 SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, async () => {
   console.log('🚀 HamBaller.xyz Backend Server Started');
   console.log(`📡 HTTP API: http://${HOST}:${PORT}`);
   console.log(`🔌 WebSocket: ws://${HOST}:${PORT}/socket`);
   console.log(`🎮 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⚡ WebSocket clients: ${wsClients.size}`);
+  
+  console.log('\n🔧 Initializing Phase 8 Systems...');
+  
+  // Initialize achievements service
+  try {
+    const achievementsInitialized = await achievementsService.initialize();
+    if (achievementsInitialized) {
+      console.log('✅ Achievements service initialized');
+    } else {
+      console.log('⚠️ Achievements service not initialized - limited functionality');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize achievements service:', error.message);
+  }
+  
+  // Initialize XPVerifier service
+  try {
+    const xpVerifierInitialized = await xpVerifierService.initialize();
+    if (xpVerifierInitialized) {
+      console.log('✅ XPVerifier service initialized');
+    } else {
+      console.log('⚠️ XPVerifier service not initialized - ZK-proof verification disabled');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize XPVerifier service:', error.message);
+  }
+  
+  // Initialize retry queue system
+  try {
+    const retryQueueInitialized = await retryQueue.initialize();
+    if (retryQueueInitialized) {
+      console.log('✅ Badge retry queue system initialized');
+    } else {
+      console.log('⚠️ Badge retry queue system not initialized - limited functionality');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize retry queue:', error.message);
+  }
+  
+  // Initialize event recovery system
+  try {
+    const eventRecoveryInitialized = await eventRecovery.initialize();
+    if (eventRecoveryInitialized) {
+      console.log('✅ Event recovery system initialized');
+      
+      // Perform missed event recovery on startup
+      console.log('🔍 Starting missed event recovery...');
+      await eventRecovery.recoverMissedEvents();
+    } else {
+      console.log('⚠️ Event recovery system not initialized');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize event recovery:', error.message);
+  }
+  
+  // Periodic cleanup of expired ZK-proof claims
+  if (xpVerifierService.initialized) {
+    setInterval(async () => {
+      try {
+        await xpVerifierService.cleanupExpiredClaims();
+      } catch (error) {
+        console.error('❌ Error cleaning up expired claims:', error.message);
+      }
+    }, 60 * 60 * 1000); // Every hour
+  }
+  
+  // Initialize run completed listener
+  console.log('🎧 Starting RunCompleted listener...');
   listenRunCompleted();
+  
+  console.log('\n✅ All systems initialized');
 });
 
 module.exports = { app, server, wss };

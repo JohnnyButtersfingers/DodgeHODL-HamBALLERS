@@ -1,5 +1,7 @@
 const { ethers } = require('ethers');
 const { handleRunCompletion } = require('../controllers/runLogger');
+const { retryQueue } = require('../retryQueue');
+const { achievementsService } = require('../services/achievementsService');
 
 // Contract ABIs
 const HODL_MANAGER_ABI = [
@@ -261,15 +263,73 @@ async function handleRunCompletedEvent(user, xpEarned, cpEarned, dbpMinted, dura
     };
 
     // Handle existing run completion logic
-    await handleRunCompletion(runData);
+    const runResult = await handleRunCompletion(runData);
 
-    // Queue XPBadge minting if XPBadge contract is available
-    if (xpBadgeContract && isInitialized) {
+    // Check for achievements after run completion
+    if (achievementsService.initialized) {
+      try {
+        console.log(`🏆 Checking achievements for ${user} after run completion`);
+        await achievementsService.checkRunCompletionAchievements(user, runData);
+      } catch (error) {
+        console.error('❌ Error checking run completion achievements:', error.message);
+      }
+    }
+
+    // Queue XPBadge minting using the enhanced retry queue system
+    if (retryQueue.isInitialized) {
+      try {
+        const xpAmount = Number(xpEarned.toString());
+        
+        // Only mint badges for runs that earned XP
+        if (xpAmount > 0) {
+          const currentSeason = 1; // Default season, could be dynamic based on contract
+          
+          // Get the run ID from the result or fetch it from database
+          let runId = runResult?.runId;
+          
+          if (!runId) {
+            // Fallback: Get the most recent run for this player
+            const { db } = require('../config/database');
+            if (db) {
+              const { data: recentRun, error } = await db
+                .from('run_logs')
+                .select('id')
+                .eq('player_address', user.toLowerCase())
+                .eq('status', 'completed')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+                
+              if (!error && recentRun) {
+                runId = recentRun.id;
+              }
+            }
+          }
+          
+          if (runId) {
+            await retryQueue.addAttempt(
+              user,
+              runId,
+              xpAmount,
+              currentSeason
+            );
+            
+            console.log(`📋 Queued XPBadge mint for ${user} (${xpAmount} XP, Season ${currentSeason})`);
+          } else {
+            console.warn(`⚠️ Could not get run ID for badge minting: ${user}`);
+          }
+        } else {
+          console.log(`ℹ️ No XPBadge mint for ${user} - no XP earned`);
+        }
+      } catch (error) {
+        console.error('❌ Error queuing XPBadge mint with retry system:', error.message);
+      }
+    } else if (xpBadgeContract && isInitialized) {
+      // Fallback to old system if retry queue not available
       try {
         const currentSeason = await xpBadgeContract.getCurrentSeason();
         const xpAmount = Number(xpEarned.toString());
         
-        // Only mint badges for runs that earned XP
         if (xpAmount > 0) {
           mintingQueue.push({
             playerAddress: user,
@@ -278,15 +338,11 @@ async function handleRunCompletedEvent(user, xpEarned, cpEarned, dbpMinted, dura
             timestamp: runData.timestamp
           });
           
-          console.log(`📋 Queued XPBadge mint for ${user} (${xpAmount} XP, Season ${currentSeason})`);
-          
-          // Process queue (async, don't wait)
+          console.log(`📋 Fallback: Queued XPBadge mint for ${user} (${xpAmount} XP, Season ${currentSeason})`);
           processMintingQueue().catch(console.error);
-        } else {
-          console.log(`ℹ️ No XPBadge mint for ${user} - no XP earned`);
         }
       } catch (error) {
-        console.error('❌ Error queuing XPBadge mint:', error.message);
+        console.error('❌ Error with fallback badge minting:', error.message);
       }
     }
 
