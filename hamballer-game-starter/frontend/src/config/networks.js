@@ -32,6 +32,7 @@ export const CONTRACT_ADDRESSES = {
   DBP_TOKEN: process.env.VITE_DBP_TOKEN_ADDRESS || '',
   BOOST_NFT: process.env.VITE_BOOST_NFT_ADDRESS || '',
   HODL_MANAGER: process.env.VITE_HODL_MANAGER_ADDRESS || '',
+  XP_BADGE: process.env.VITE_XPBADGE_ADDRESS || '',
 };
 
 // Contract ABIs (simplified versions for frontend use)
@@ -58,6 +59,14 @@ export const CONTRACT_ABIS = {
     'function getPlayerStats(address player) view returns (tuple)',
     'function getCurrentPrice() view returns (uint256)',
     'function isRunActive(bytes32 runId) view returns (bool)',
+  ],
+  XP_BADGE: [
+    'function balanceOf(address account, uint256 id) view returns (uint256)',
+    'function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])',
+    'function mintBadge(address to, uint256 tokenId, uint256 xp, uint256 season) returns (bool)',
+    'function getBadgeInfo(address player, uint256 tokenId) view returns (tuple)',
+    'function getBadgesByPlayer(address player) view returns (tuple[])',
+    'function uri(uint256 tokenId) view returns (string)',
   ],
 };
 
