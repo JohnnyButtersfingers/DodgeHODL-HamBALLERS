@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useWebSocket } from '../services/useWebSocketService';
 import PriceTicker from './PriceTicker';
+import XpNotifications from './XpNotifications';
 
 const Layout = () => {
   const location = useLocation();
@@ -13,6 +14,8 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
     { path: '/badges', label: 'Badges', icon: '🏅' },
+    { path: '/achievements', label: 'Achievements', icon: '🎯' },
+    { path: '/lootpacks', label: 'Loot Packs', icon: '📦' },
     { path: '/replay', label: 'Replays', icon: '📺' },
   ];
 
@@ -132,6 +135,9 @@ const Layout = () => {
           </div>
         </div>
       </footer>
+
+      {/* XP Notifications Overlay */}
+      <XpNotifications />
     </div>
   );
 };
