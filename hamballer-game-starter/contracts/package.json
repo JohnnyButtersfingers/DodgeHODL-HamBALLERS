@@ -8,6 +8,7 @@
     "test": "hardhat test",
     "deploy:local": "hardhat run scripts/deploy_all.js --network localhost",
     "deploy:abstract": "hardhat run scripts/deploy_all.js --network abstract",
+    "deploy:xpbadge": "hardhat run scripts/deploy_xpbadge.js --network abstract",
     "deploy:production": "hardhat run scripts/deploy_production.js --network abstract",
     "verify": "hardhat verify --network abstract",
     "node": "hardhat node"

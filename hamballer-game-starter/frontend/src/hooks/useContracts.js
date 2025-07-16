@@ -12,6 +12,7 @@ export const useContracts = () => {
     dbpToken: null,
     boostNft: null,
     hodlManager: null,
+    xpBadge: null,
   });
 
   useEffect(() => {
@@ -37,10 +38,20 @@ export const useContracts = () => {
         walletClient: walletClient || undefined,
       });
 
+      const xpBadge = CONTRACT_ADDRESSES.XP_BADGE
+        ? getContract({
+            address: CONTRACT_ADDRESSES.XP_BADGE,
+            abi: CONTRACT_ABIS.XP_BADGE,
+            publicClient,
+            walletClient: walletClient || undefined,
+          })
+        : null;
+
       setContracts({
         dbpToken,
         boostNft,
         hodlManager,
+        xpBadge,
       });
     }
   }, [publicClient, walletClient]);
@@ -170,6 +181,8 @@ export const useContracts = () => {
   return {
     contracts,
     isConnected: isConnected && !!contracts.dbpToken,
+
+    xpBadge: contracts.xpBadge,
     
     // Read functions
     getDbpBalance,

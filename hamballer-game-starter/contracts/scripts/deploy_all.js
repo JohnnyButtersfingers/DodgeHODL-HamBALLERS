@@ -43,6 +43,15 @@ async function main() {
   console.log("✅ Boost NFT deployed to:", boostAddr);
   saveFrontend("BoostNFT", boostAddr);
 
+  // Deploy XP Badge NFT
+  console.log("\n🏅 Deploying XPBadge...");
+  const XPBadge = await ethers.getContractFactory("XPBadge");
+  const xpBadge = await XPBadge.deploy();
+  await xpBadge.waitForDeployment();
+  const badgeAddr = await xpBadge.getAddress();
+  console.log("✅ XPBadge deployed to:", badgeAddr);
+  saveFrontend("XPBadge", badgeAddr);
+
   // Deploy HODL Manager
   console.log("\n🎯 Deploying HODL Manager...");
   const HODLManager = await ethers.getContractFactory("HODLManager");
@@ -74,11 +83,13 @@ async function main() {
   console.log("");
   console.log("📗 DBP Token:", await dbpToken.getAddress());
   console.log("🎁 Boost NFT:", await boostNFT.getAddress());
+  console.log("🏅 XPBadge:", await xpBadge.getAddress());
   console.log("🎯 HODL Manager:", await hodlManager.getAddress());
   console.log("");
   console.log("🔗 Add these to your .env file:");
   console.log(`DBP_TOKEN_ADDRESS=${await dbpToken.getAddress()}`);
   console.log(`BOOST_NFT_ADDRESS=${await boostNFT.getAddress()}`);
+  console.log(`XP_BADGE_ADDRESS=${await xpBadge.getAddress()}`);
   console.log(`HODL_MANAGER_ADDRESS=${await hodlManager.getAddress()}`);
   
   // Verify contracts on block explorer (if not localhost)
@@ -105,6 +116,16 @@ async function main() {
       console.log("✅ Boost NFT verified");
     } catch (error) {
       console.log("❌ Boost NFT verification failed:", error.message);
+    }
+
+    try {
+      await hre.run("verify:verify", {
+        address: await xpBadge.getAddress(),
+        constructorArguments: [],
+      });
+      console.log("✅ XPBadge verified");
+    } catch (error) {
+      console.log("❌ XPBadge verification failed:", error.message);
     }
     
     try {
