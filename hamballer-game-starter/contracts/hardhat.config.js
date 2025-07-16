@@ -1,6 +1,9 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
+// Disable automatic compiler downloads for offline development
+process.env.HARDHAT_COMPILERS_DOWNLOAD = 'false';
+
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {

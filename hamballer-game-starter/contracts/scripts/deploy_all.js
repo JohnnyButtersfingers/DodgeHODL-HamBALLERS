@@ -1,4 +1,6 @@
 const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
   console.log("🚀 Starting HamBaller.xyz contract deployment...");
@@ -60,6 +62,23 @@ async function main() {
   console.log(`DBP_TOKEN_ADDRESS=${await dbpToken.getAddress()}`);
   console.log(`BOOST_NFT_ADDRESS=${await boostNFT.getAddress()}`);
   console.log(`HODL_MANAGER_ADDRESS=${await hodlManager.getAddress()}`);
+
+  // Export contract data to frontend
+  console.log("\n📄 Exporting contract data to frontend...");
+  await exportContractsToFrontend({
+    dbpToken: {
+      address: await dbpToken.getAddress(),
+      contract: DBPToken
+    },
+    boostNFT: {
+      address: await boostNFT.getAddress(),
+      contract: BoostNFT
+    },
+    hodlManager: {
+      address: await hodlManager.getAddress(),
+      contract: HODLManager
+    }
+  });
   
   // Verify contracts on block explorer (if not localhost)
   const network = await ethers.provider.getNetwork();
@@ -99,6 +118,84 @@ async function main() {
   }
   
   console.log("\n🎉 Deployment complete!");
+}
+
+/**
+ * Export contract addresses and ABIs to frontend config
+ */
+async function exportContractsToFrontend(contracts) {
+  try {
+    const network = await ethers.provider.getNetwork();
+    
+    const contractsData = {
+      network: {
+        name: network.name,
+        chainId: Number(network.chainId)
+      },
+      timestamp: new Date().toISOString(),
+      contracts: {
+        DBPToken: {
+          address: contracts.dbpToken.address,
+          abi: contracts.dbpToken.contract.interface.fragments.map(f => f.format('json')).map(JSON.parse)
+        },
+        BoostNFT: {
+          address: contracts.boostNFT.address,
+          abi: contracts.boostNFT.contract.interface.fragments.map(f => f.format('json')).map(JSON.parse)
+        },
+        HODLManager: {
+          address: contracts.hodlManager.address,
+          abi: contracts.hodlManager.contract.interface.fragments.map(f => f.format('json')).map(JSON.parse)
+        }
+      }
+    };
+
+    // Write to frontend config directory
+    const frontendConfigPath = path.join(__dirname, "../../frontend/src/config");
+    const contractsJsonPath = path.join(frontendConfigPath, "contracts.json");
+    
+    // Ensure the directory exists
+    if (!fs.existsSync(frontendConfigPath)) {
+      fs.mkdirSync(frontendConfigPath, { recursive: true });
+    }
+    
+    fs.writeFileSync(contractsJsonPath, JSON.stringify(contractsData, null, 2));
+    console.log("✅ contracts.json exported to:", contractsJsonPath);
+    
+    // Also write a TypeScript declarations file for better development experience
+    const contractsTypesPath = path.join(frontendConfigPath, "contracts.d.ts");
+    const typesContent = `// Auto-generated contract types
+export interface ContractData {
+  network: {
+    name: string;
+    chainId: number;
+  };
+  timestamp: string;
+  contracts: {
+    DBPToken: {
+      address: string;
+      abi: any[];
+    };
+    BoostNFT: {
+      address: string;
+      abi: any[];
+    };
+    HODLManager: {
+      address: string;
+      abi: any[];
+    };
+  };
+}
+
+declare const contracts: ContractData;
+export default contracts;
+`;
+    
+    fs.writeFileSync(contractsTypesPath, typesContent);
+    console.log("✅ contracts.d.ts exported to:", contractsTypesPath);
+    
+  } catch (error) {
+    console.error("❌ Failed to export contracts data:", error);
+  }
 }
 
 main()
