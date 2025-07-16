@@ -62,6 +62,7 @@ Use feature branches and open PRs. Lint before pushing. See checklist below.
 1. On a machine with internet access prefetch packages with `pnpm store add jest vitest hardhat`.
 2. Export the store using `pnpm store export <dest>` and copy it into `scripts/pnpm-store/`.
 3. From the repo root run `scripts/setup-offline.sh` to install packages from that store.
+4. After the script completes, run `pnpm install:all` again so each workspace links the cached packages.
 
 The following packages must be available in the store for tests:
 - jest

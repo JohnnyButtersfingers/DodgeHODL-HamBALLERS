@@ -1,4 +1,18 @@
-const { ethers } = require("hardhat");
+const { ethers, artifacts } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
+
+function saveFrontend(contractName, address) {
+  const contractsPath = path.join(__dirname, "../../frontend/src/config/contracts.json");
+  const abi = artifacts.readArtifactSync(contractName).abi;
+  let data = {};
+  if (fs.existsSync(contractsPath)) {
+    data = JSON.parse(fs.readFileSync(contractsPath));
+  }
+  data[contractName] = { address, abi };
+  fs.writeFileSync(contractsPath, JSON.stringify(data, null, 2));
+  console.log(`📑 Saved ${contractName} data to ${contractsPath}`);
+}
 
 async function main() {
   console.log("🚀 Starting HamBaller.xyz contract deployment...");
@@ -16,14 +30,18 @@ async function main() {
     ethers.parseEther("1000000") // initial supply: 1M tokens
   );
   await dbpToken.waitForDeployment();
-  console.log("✅ DBP Token deployed to:", await dbpToken.getAddress());
+  const dbpAddr = await dbpToken.getAddress();
+  console.log("✅ DBP Token deployed to:", dbpAddr);
+  saveFrontend("DBPToken", dbpAddr);
 
   // Deploy Boost NFT
   console.log("\n🎁 Deploying Boost NFT...");
   const BoostNFT = await ethers.getContractFactory("BoostNFT");
   const boostNFT = await BoostNFT.deploy("https://api.hamballer.xyz/metadata/");
   await boostNFT.waitForDeployment();
-  console.log("✅ Boost NFT deployed to:", await boostNFT.getAddress());
+  const boostAddr = await boostNFT.getAddress();
+  console.log("✅ Boost NFT deployed to:", boostAddr);
+  saveFrontend("BoostNFT", boostAddr);
 
   // Deploy HODL Manager
   console.log("\n🎯 Deploying HODL Manager...");
@@ -33,7 +51,9 @@ async function main() {
     await boostNFT.getAddress()
   );
   await hodlManager.waitForDeployment();
-  console.log("✅ HODL Manager deployed to:", await hodlManager.getAddress());
+  const hodlAddr = await hodlManager.getAddress();
+  console.log("✅ HODL Manager deployed to:", hodlAddr);
+  saveFrontend("HODLManager", hodlAddr);
 
   // Set up permissions
   console.log("\n🔐 Setting up contract permissions...");
