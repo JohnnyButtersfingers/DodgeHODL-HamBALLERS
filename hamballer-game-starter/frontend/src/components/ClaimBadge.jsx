@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useContracts } from '../hooks/useContracts';
 import { apiFetch } from '../services/useApiService';
+import xpVerificationService from '../services/xpVerificationService';
 
 const BADGE_TYPES = [
   { id: 0, name: 'Participation', xpRange: '1-24 XP', emoji: '🥾', color: 'text-gray-400' },
@@ -106,11 +107,35 @@ const ClaimBadge = () => {
   };
 
   const claimBadge = async (badge) => {
-    if (!address || !contracts?.hodlManager) return;
+    if (!address || !contracts?.xpBadge) {
+      console.error('Address or XP Badge contract not available');
+      return;
+    }
 
     setClaiming(prev => ({ ...prev, [badge.id]: true }));
     
     try {
+      // Step 1: Generate ZK proof if XPVerifier is available and required
+      let verificationData = null;
+      if (contracts?.xpVerifier && (badge.requiresProof || badge.xpEarned >= 50)) {
+        try {
+          console.log('🔐 Generating ZK proof for XP verification...');
+          verificationData = await xpVerificationService.generateXPProof(
+            address,
+            badge.xpEarned,
+            badge.runId
+          );
+          console.log('✅ ZK proof generated successfully');
+        } catch (proofError) {
+          console.warn('⚠️ ZK proof generation failed:', proofError.message);
+          // Continue without verification for lower XP amounts
+          if (badge.xpEarned >= 100) {
+            throw new Error(`XP verification required for claims over 100 XP: ${proofError.message}`);
+          }
+        }
+      }
+
+      // Step 2: Submit to backend for badge minting
       const response = await apiFetch('/api/badges/claim', {
         method: 'POST',
         headers: {
@@ -121,7 +146,8 @@ const ClaimBadge = () => {
           tokenId: badge.tokenId,
           xpEarned: badge.xpEarned,
           season: badge.season,
-          runId: badge.runId
+          runId: badge.runId,
+          verificationData // Include ZK proof if available
         }),
       });
 
@@ -130,23 +156,32 @@ const ClaimBadge = () => {
         if (result.success) {
           // Remove from unclaimed badges
           setUnclaimedBadges(prev => prev.filter(b => b.id !== badge.id));
-          // Show success message
+          
+          // Show success message with transaction hash
           console.log('Badge claimed successfully:', result.txHash);
+          
+          // If XP verification was used, log that too
+          if (verificationData) {
+            console.log('XP verified on-chain:', verificationData.nullifier);
+          }
         } else {
           throw new Error(result.error || 'Failed to claim badge');
         }
       } else {
-        throw new Error('Failed to claim badge');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to claim badge');
       }
     } catch (error) {
       console.error('Error claiming badge:', error);
+      
       // Move to failed badges if not already there
       if (!failedBadges.find(b => b.id === badge.id)) {
         setFailedBadges(prev => [...prev, {
           ...badge,
           status: 'failed',
           failureReason: error.message,
-          retryCount: (badge.retryCount || 0) + 1
+          retryCount: (badge.retryCount || 0) + 1,
+          lastAttempt: new Date().toISOString()
         }]);
       }
       setUnclaimedBadges(prev => prev.filter(b => b.id !== badge.id));

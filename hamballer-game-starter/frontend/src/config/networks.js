@@ -33,6 +33,7 @@ export const CONTRACT_ADDRESSES = {
   BOOST_NFT: process.env.VITE_BOOST_NFT_ADDRESS || '',
   HODL_MANAGER: process.env.VITE_HODL_MANAGER_ADDRESS || '',
   XP_BADGE: process.env.VITE_XPBADGE_ADDRESS || '',
+  XP_VERIFIER: process.env.VITE_XPVERIFIER_ADDRESS || '',
 };
 
 // Contract ABIs (simplified versions for frontend use)
@@ -67,6 +68,13 @@ export const CONTRACT_ABIS = {
     'function getBadgeInfo(address player, uint256 tokenId) view returns (tuple)',
     'function getBadgesByPlayer(address player) view returns (tuple[])',
     'function uri(uint256 tokenId) view returns (string)',
+  ],
+  XP_VERIFIER: [
+    'function verifyXPProof(bytes32 nullifier, bytes32 commitment, uint256[8] calldata proof, uint256 claimedXP, uint256 threshold) external returns (bool)',
+    'function isNullifierUsed(bytes32 nullifier) external view returns (bool)',
+    'function getVerificationResult(address player, bytes32 nullifier) external view returns (tuple)',
+    'function getThreshold() external view returns (uint256)',
+    'event XPProofVerified(address indexed player, bytes32 indexed nullifier, uint256 claimedXP, uint256 threshold, bool verified)',
   ],
 };
 
