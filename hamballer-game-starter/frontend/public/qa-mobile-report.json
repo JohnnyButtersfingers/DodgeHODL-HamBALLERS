@@ -1,0 +1,20 @@
+{
+  "title": "Mobile Optimization QA Report",
+  "generated": "2025-07-17T03:47:29.146Z",
+  "summary": {
+    "total": 33,
+    "passed": 19,
+    "failed": 2,
+    "warnings": 12,
+    "successRate": 57.6
+  },
+  "criticalIssues": 2,
+  "warnings": 12,
+  "recommendations": [
+    "CRITICAL: 2 components have mobile layout issues that need immediate attention",
+    "Fix badge modal overflow on screens smaller than 375px",
+    "Improve XP popup positioning on mobile devices",
+    "Increase touch target sizes for better usability",
+    "Add responsive design improvements for very small screens"
+  ]
+}

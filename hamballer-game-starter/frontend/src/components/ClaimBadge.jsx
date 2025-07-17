@@ -3,6 +3,8 @@ import { useWallet } from '../contexts/WalletContext';
 import { useContracts } from '../hooks/useContracts';
 import { apiFetch } from '../services/useApiService';
 import xpVerificationService from '../services/xpVerificationService';
+import { useZKToasts } from './ZKErrorToast';
+import { zkLogger } from '../services/zkAnalyticsService';
 
 const BADGE_TYPES = [
   { id: 0, name: 'Participation', xpRange: '1-24 XP', emoji: '🥾', color: 'text-gray-400' },
@@ -15,6 +17,14 @@ const BADGE_TYPES = [
 const ClaimBadge = () => {
   const { address } = useWallet();
   const { contracts } = useContracts();
+  const {
+    showInvalidProof,
+    showNullifierReused,
+    showNotEligible,
+    showNetworkError,
+    showInsufficientGas,
+    showProofTimeout
+  } = useZKToasts();
   const [unclaimedBadges, setUnclaimedBadges] = useState([]);
   const [failedBadges, setFailedBadges] = useState([]);
   const [pendingBadges, setPendingBadges] = useState([]);
@@ -106,9 +116,19 @@ const ClaimBadge = () => {
     }
   };
 
+  const classifyProofError = (error) => {
+    const message = error.message.toLowerCase();
+    if (message.includes('nullifier')) return 'nullifier_reuse';
+    if (message.includes('timeout')) return 'timeout';
+    if (message.includes('invalid') || message.includes('verification')) return 'invalid_proof';
+    if (message.includes('network') || message.includes('connection')) return 'network_error';
+    if (message.includes('gas')) return 'insufficient_gas';
+    return 'unknown_error';
+  };
+
   const claimBadge = async (badge) => {
     if (!address || !contracts?.xpBadge) {
-      console.error('Address or XP Badge contract not available');
+      showNetworkError({ message: 'Address or XP Badge contract not available' });
       return;
     }
 
@@ -120,17 +140,57 @@ const ClaimBadge = () => {
       if (contracts?.xpVerifier && (badge.requiresProof || badge.xpEarned >= 50)) {
         try {
           console.log('🔐 Generating ZK proof for XP verification...');
+          
+          // Log proof attempt
+          await zkLogger.logProofAttempt({
+            playerAddress: address,
+            claimedXP: badge.xpEarned,
+            runId: badge.runId,
+            badgeType: badge.name
+          });
+          
           verificationData = await xpVerificationService.generateXPProof(
             address,
             badge.xpEarned,
             badge.runId
           );
+          
+          // Log successful proof generation
+          await zkLogger.logProofSuccess({
+            playerAddress: address,
+            claimedXP: badge.xpEarned,
+            nullifier: verificationData.nullifier,
+            proofSize: JSON.stringify(verificationData.proof).length
+          });
+          
           console.log('✅ ZK proof generated successfully');
         } catch (proofError) {
           console.warn('⚠️ ZK proof generation failed:', proofError.message);
+          
+                     // Log proof failure with specific error handling
+           await zkLogger.logProofFailure({
+             playerAddress: address,
+             claimedXP: badge.xpEarned,
+             error: proofError.message,
+             errorType: classifyProofError(proofError)
+           });
+          
+          // Handle specific error types with appropriate UX
+          if (proofError.message.includes('nullifier')) {
+            showNullifierReused(proofError.nullifier || 'unknown');
+            return;
+          } else if (proofError.message.includes('timeout')) {
+            showProofTimeout();
+            return;
+          } else if (proofError.message.includes('invalid')) {
+            showInvalidProof(proofError.message);
+            return;
+          }
+          
           // Continue without verification for lower XP amounts
           if (badge.xpEarned >= 100) {
-            throw new Error(`XP verification required for claims over 100 XP: ${proofError.message}`);
+            showNotEligible(100, badge.xpEarned);
+            return;
           }
         }
       }
@@ -173,6 +233,17 @@ const ClaimBadge = () => {
       }
     } catch (error) {
       console.error('Error claiming badge:', error);
+      
+      // Handle different types of errors with appropriate UX
+      if (error.message.includes('gas')) {
+        showInsufficientGas('Unknown', 'Unknown');
+      } else if (error.message.includes('network') || error.message.includes('connection')) {
+        showNetworkError(error);
+      } else if (error.message.includes('not eligible')) {
+        showNotEligible(badge.xpEarned, 0);
+      } else {
+        showInvalidProof(error.message);
+      }
       
       // Move to failed badges if not already there
       if (!failedBadges.find(b => b.id === badge.id)) {

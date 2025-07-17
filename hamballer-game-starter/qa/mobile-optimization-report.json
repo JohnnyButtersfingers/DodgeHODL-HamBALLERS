@@ -1,0 +1,317 @@
+{
+  "title": "Mobile Optimization QA Report",
+  "generated": "2025-07-17T03:47:29.146Z",
+  "environment": "browser_simulation",
+  "version": "1.0.0",
+  "tests": [
+    {
+      "name": "Viewport Responsiveness - iPhone SE",
+      "viewport": {
+        "name": "iPhone SE",
+        "width": 375,
+        "height": 667
+      },
+      "status": "warning",
+      "issues": [
+        "Limited vertical space may cause scrolling issues"
+      ],
+      "duration": "0.5s"
+    },
+    {
+      "name": "Viewport Responsiveness - iPhone 12",
+      "viewport": {
+        "name": "iPhone 12",
+        "width": 390,
+        "height": 844
+      },
+      "status": "passed",
+      "issues": [],
+      "duration": "0.5s"
+    },
+    {
+      "name": "Viewport Responsiveness - iPhone 12 Pro Max",
+      "viewport": {
+        "name": "iPhone 12 Pro Max",
+        "width": 428,
+        "height": 926
+      },
+      "status": "passed",
+      "issues": [],
+      "duration": "0.5s"
+    },
+    {
+      "name": "Viewport Responsiveness - Samsung Galaxy S21",
+      "viewport": {
+        "name": "Samsung Galaxy S21",
+        "width": 360,
+        "height": 800
+      },
+      "status": "passed",
+      "issues": [],
+      "duration": "0.5s"
+    },
+    {
+      "name": "Viewport Responsiveness - iPad Mini",
+      "viewport": {
+        "name": "iPad Mini",
+        "width": 768,
+        "height": 1024
+      },
+      "status": "passed",
+      "issues": [
+        "Tablet layout should be optimized differently from mobile"
+      ],
+      "duration": "0.5s"
+    },
+    {
+      "name": "Viewport Responsiveness - Small Android",
+      "viewport": {
+        "name": "Small Android",
+        "width": 320,
+        "height": 568
+      },
+      "status": "warning",
+      "issues": [
+        "Text may be too small on very small screens",
+        "Limited vertical space may cause scrolling issues"
+      ],
+      "duration": "0.5s"
+    },
+    {
+      "name": "Component Overflow - badge-modal",
+      "component": "badge-modal",
+      "status": "failed",
+      "issues": [
+        "Badge modal may overflow on screens smaller than 375px width",
+        "Modal content scrolling needs improvement"
+      ],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Component Overflow - game-interface",
+      "component": "game-interface",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Component Overflow - leaderboard",
+      "component": "leaderboard",
+      "status": "warning",
+      "issues": [
+        "Horizontal scrolling on very small screens"
+      ],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Component Overflow - xp-overlay",
+      "component": "xp-overlay",
+      "status": "failed",
+      "issues": [
+        "XP popup positioning incorrect on small screens"
+      ],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Component Overflow - wallet-connection",
+      "component": "wallet-connection",
+      "status": "warning",
+      "issues": [
+        "Wallet address truncation could be improved"
+      ],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Component Overflow - navigation-menu",
+      "component": "navigation-menu",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Component Overflow - claim-forms",
+      "component": "claim-forms",
+      "status": "warning",
+      "issues": [
+        "Form buttons may be too close together on mobile"
+      ],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Component Overflow - error-toasts",
+      "component": "error-toasts",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Touch Target - navigation-buttons",
+      "target": "navigation-buttons",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.2s"
+    },
+    {
+      "name": "Touch Target - game-controls",
+      "target": "game-controls",
+      "status": "warning",
+      "issues": [
+        "Game control buttons need larger touch areas"
+      ],
+      "duration": "0.2s"
+    },
+    {
+      "name": "Touch Target - modal-close-buttons",
+      "target": "modal-close-buttons",
+      "status": "warning",
+      "issues": [
+        "Close buttons may be too small for comfortable touch"
+      ],
+      "duration": "0.2s"
+    },
+    {
+      "name": "Touch Target - form-inputs",
+      "target": "form-inputs",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.2s"
+    },
+    {
+      "name": "Touch Target - wallet-connect-button",
+      "target": "wallet-connect-button",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.2s"
+    },
+    {
+      "name": "Touch Target - claim-badge-buttons",
+      "target": "claim-badge-buttons",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.2s"
+    },
+    {
+      "name": "Modal Positioning - badge-claim-modal",
+      "modal": "badge-claim-modal",
+      "status": "warning",
+      "issues": [
+        "Modal may not center properly on landscape orientation"
+      ],
+      "duration": "0.4s"
+    },
+    {
+      "name": "Modal Positioning - wallet-connection-modal",
+      "modal": "wallet-connection-modal",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.4s"
+    },
+    {
+      "name": "Modal Positioning - error-dialogs",
+      "modal": "error-dialogs",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.4s"
+    },
+    {
+      "name": "Modal Positioning - qa-summary-modal",
+      "modal": "qa-summary-modal",
+      "status": "warning",
+      "issues": [
+        "Large modal needs better mobile optimization"
+      ],
+      "duration": "0.4s"
+    },
+    {
+      "name": "Modal Positioning - settings-modal",
+      "modal": "settings-modal",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.4s"
+    },
+    {
+      "name": "Form Input - wallet-address-input",
+      "form": "wallet-address-input",
+      "status": "warning",
+      "issues": [
+        "Address inputs should have appropriate virtual keyboard"
+      ],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Form Input - claim-amount-input",
+      "form": "claim-amount-input",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Form Input - search-inputs",
+      "form": "search-inputs",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Form Input - settings-forms",
+      "form": "settings-forms",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.3s"
+    },
+    {
+      "name": "Mobile Navigation Usability",
+      "status": "warning",
+      "issues": [
+        "Consider adding hamburger menu for mobile",
+        "Bottom navigation bar could improve mobile UX"
+      ],
+      "duration": "0.6s"
+    },
+    {
+      "name": "Mobile Performance",
+      "status": "passed",
+      "issues": [],
+      "duration": "1.0s",
+      "metrics": {
+        "estimatedLoadTime": "2.5s",
+        "estimatedJSBundleSize": "450KB",
+        "estimatedCSSSize": "120KB"
+      }
+    },
+    {
+      "name": "Orientation Support - portrait",
+      "orientation": "portrait",
+      "status": "passed",
+      "issues": [],
+      "duration": "0.4s"
+    },
+    {
+      "name": "Orientation Support - landscape",
+      "orientation": "landscape",
+      "status": "warning",
+      "issues": [
+        "Game interface needs landscape optimization",
+        "Modal positioning may need adjustment in landscape"
+      ],
+      "duration": "0.4s"
+    }
+  ],
+  "summary": {
+    "total": 33,
+    "passed": 19,
+    "failed": 2,
+    "warnings": 12,
+    "successRate": 57.6
+  },
+  "recommendations": [
+    "CRITICAL: 2 components have mobile layout issues that need immediate attention",
+    "Fix badge modal overflow on screens smaller than 375px",
+    "Improve XP popup positioning on mobile devices",
+    "Increase touch target sizes for better usability",
+    "Add responsive design improvements for very small screens",
+    "Consider implementing a mobile-first navigation pattern",
+    "Optimize modal positioning for landscape orientation",
+    "Test on actual devices to validate responsive behavior"
+  ]
+}
