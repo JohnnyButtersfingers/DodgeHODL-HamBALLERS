@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { apiFetch } from '../services/useApiService';
 import { useGameState } from '../hooks/useGameState';
+import XPProgressGraph from './XPProgressGraph';
 
 const Dashboard = () => {
   const { address, isConnected } = useWallet();
@@ -97,16 +98,8 @@ const Dashboard = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Performance Chart */}
-        <div className="bg-gray-800/50 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Performance Over Time</h3>
-          <div className="h-64 flex items-center justify-center text-gray-400">
-            <div className="text-center">
-              <div className="text-4xl mb-2">📈</div>
-              <div>Performance chart coming soon</div>
-            </div>
-          </div>
-        </div>
+        {/* XP Progress Chart */}
+        <XPProgressGraph showInDashboard={true} />
 
         {/* HODL vs CLIMB Analysis */}
         <div className="bg-gray-800/50 rounded-lg p-6">

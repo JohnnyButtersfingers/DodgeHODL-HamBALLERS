@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { TrendingUp } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { apiFetch } from '../services/useApiService';
+import XPProgressGraph from './XPProgressGraph';
 
 const Leaderboard = () => {
   const { address } = useWallet();
@@ -8,6 +10,7 @@ const Leaderboard = () => {
   const [loading, setLoading] = useState(false);
   const [category, setCategory] = useState('total_dbp'); // total_dbp, best_score, total_runs, win_rate
   const [timeframe, setTimeframe] = useState('all'); // 24h, 7d, 30d, all
+  const [showXPProgress, setShowXPProgress] = useState(false);
 
   useEffect(() => {
     fetchLeaderboard();
@@ -102,6 +105,19 @@ const Leaderboard = () => {
             <option value="30d">Last 30 Days</option>
             <option value="all">All Time</option>
           </select>
+
+          {/* XP Progress Toggle */}
+          <button
+            onClick={() => setShowXPProgress(!showXPProgress)}
+            className={`flex items-center space-x-2 px-4 py-2 rounded text-sm transition-colors ${
+              showXPProgress 
+                ? 'bg-green-500 hover:bg-green-600 text-white' 
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>XP Progress</span>
+          </button>
 
           <button
             onClick={fetchLeaderboard}
@@ -254,6 +270,13 @@ const Leaderboard = () => {
           </div>
         )}
       </div>
+
+      {/* XP Progress Section */}
+      {showXPProgress && (
+        <div className="mt-8">
+          <XPProgressGraph />
+        </div>
+      )}
 
       {/* Your Rank Section */}
       {address && !leaderboardData.some(p => isCurrentUser(p.address)) && (

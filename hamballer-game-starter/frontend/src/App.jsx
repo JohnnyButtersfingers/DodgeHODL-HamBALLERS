@@ -12,9 +12,12 @@ import GameView from './components/GameView';
 import Dashboard from './components/Dashboard';
 import ReplayViewer from './components/ReplayViewer';
 import Leaderboard from './components/Leaderboard';
+import LaunchDashboard from './components/LaunchDashboard';
+import XPProgressGraph from './components/XPProgressGraph';
+import ZKFailureMonitor from './components/ZKFailureMonitor';
 
 // Hooks
-import { WebSocketProvider } from './services/useWebSocketService';
+import { WebSocketProvider } from './services/useWebSocketService.jsx';
 import { GameStateProvider } from './hooks/useGameState';
 import { WalletProvider } from './contexts/WalletContext';
 import { XpProvider } from './contexts/XpContext';
@@ -116,6 +119,9 @@ function App() {
                         <Route path="dashboard" element={<Dashboard />} />
                         <Route path="leaderboard" element={<Leaderboard />} />
                         <Route path="replay/:runId?" element={<ReplayViewer />} />
+                        <Route path="launch-dashboard" element={<LaunchDashboard />} />
+                        <Route path="xp-progress" element={<XPProgressGraph />} />
+                        <Route path="dev/recent-claims" element={<ZKFailureMonitor />} />
                       </Route>
                     </Routes>
                   </div>
