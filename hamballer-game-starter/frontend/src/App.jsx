@@ -15,6 +15,7 @@ import Leaderboard from './components/Leaderboard';
 import LaunchDashboard from './components/LaunchDashboard';
 import XPProgressGraph from './components/XPProgressGraph';
 import ZKFailureMonitor from './components/ZKFailureMonitor';
+import HowToPlay from './components/HowToPlay';
 
 // Hooks
 import { WebSocketProvider } from './services/useWebSocketService.jsx';
@@ -120,6 +121,7 @@ function App() {
                         <Route path="leaderboard" element={<Leaderboard />} />
                         <Route path="replay/:runId?" element={<ReplayViewer />} />
                         <Route path="launch-dashboard" element={<LaunchDashboard />} />
+                        <Route path="how-to-play" element={<HowToPlay />} />
                         <Route path="xp-progress" element={<XPProgressGraph />} />
                         <Route path="dev/recent-claims" element={<ZKFailureMonitor />} />
                       </Route>

@@ -3,6 +3,7 @@ import { useWallet } from '../contexts/WalletContext';
 import { apiFetch } from '../services/useApiService';
 import { useGameState } from '../hooks/useGameState';
 import XPProgressGraph from './XPProgressGraph';
+import { GameifiedRewards, useGameifiedRewards, SparkleEffect } from './GameifiedRewards';
 
 const Dashboard = () => {
   const { address, isConnected } = useWallet();
@@ -10,6 +11,7 @@ const Dashboard = () => {
   const [runHistory, setRunHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [timeFilter, setTimeFilter] = useState('7d'); // 24h, 7d, 30d, all
+  const { activeRewards, triggerReward, clearReward } = useGameifiedRewards();
 
   useEffect(() => {
     if (isConnected && address) {
@@ -35,6 +37,18 @@ const Dashboard = () => {
     }
   };
 
+  // Demo function to trigger gamified rewards
+  const triggerDemoRewards = () => {
+    // Trigger different rewards with a delay
+    setTimeout(() => triggerReward('xpGain', 150), 500);
+    setTimeout(() => triggerReward('comboMultiplier', 3), 1000);
+    setTimeout(() => triggerReward('rankJump', 5), 1500);
+    setTimeout(() => triggerReward('achievement', { 
+      title: 'Daily Player!', 
+      description: 'You played for 5 days in a row!' 
+    }), 2000);
+  };
+
   if (!isConnected) {
     return (
       <div className="text-center py-12">
@@ -46,6 +60,13 @@ const Dashboard = () => {
   }
 
   return (
+    <>
+      {/* Gamified Rewards */}
+      <GameifiedRewards
+        rewards={activeRewards}
+        onRewardComplete={clearReward}
+      />
+      
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -140,13 +161,21 @@ const Dashboard = () => {
       <div className="bg-gray-800/50 rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-white">Recent Runs</h3>
-          <button
-            onClick={fetchRunHistory}
-            disabled={loading}
-            className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white px-4 py-2 rounded text-sm transition-colors"
-          >
-            {loading ? 'Loading...' : 'Refresh'}
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={fetchRunHistory}
+              disabled={loading}
+              className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white px-4 py-2 rounded text-sm transition-colors"
+            >
+              {loading ? 'Loading...' : 'Refresh'}
+            </button>
+            <button
+              onClick={triggerDemoRewards}
+              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded text-sm transition-colors"
+            >
+              🎉 Demo Rewards
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -217,6 +246,7 @@ const Dashboard = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

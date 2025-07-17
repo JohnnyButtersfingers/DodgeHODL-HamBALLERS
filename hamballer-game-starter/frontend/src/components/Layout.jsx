@@ -4,6 +4,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ChevronDown, Download } from 'lucide-react';
 import { useWebSocket } from '../services/useWebSocketService.jsx';
 import { usePWA } from '../hooks/usePWA';
+import { QuickToggles } from './ThemeLanguageToggle';
 import PriceTicker from './PriceTicker';
 
 const Layout = () => {
@@ -17,6 +18,7 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
     { path: '/replay', label: 'Replays', icon: '📺' },
+    { path: '/how-to-play', label: 'How to Play', icon: '📖' },
     { path: '/launch-dashboard', label: 'Live Stats', icon: '📈' },
   ];
 
@@ -104,6 +106,9 @@ const Layout = () => {
 
               {/* Price Ticker */}
               <PriceTicker />
+
+              {/* Theme and Language Toggles */}
+              <QuickToggles />
 
               {/* PWA Install Button */}
               {canInstall && (
