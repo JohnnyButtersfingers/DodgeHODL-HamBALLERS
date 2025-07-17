@@ -1,30 +1,22 @@
 const { verifyClaim } = require('../services/xpVerifierService');
 
-jest.mock('../services/xpVerifierService');
-
-const mockVerifier = {
-  verifyAndStoreClaim: jest.fn()
-};
-
-describe('XPVerifier integration', () => {
-  test('valid proof mints badge', async () => {
-    mockVerifier.verifyAndStoreClaim.mockResolvedValue(true);
-    const result = await verifyClaim(mockVerifier, 1, '0x00');
+describe('xpVerifierService.verifyClaim', () => {
+  test('returns true for valid proof', async () => {
+    const contract = { verifyAndStoreClaim: jest.fn().mockResolvedValue(true) };
+    const result = await verifyClaim(contract, 1, '0x00');
     expect(result).toBe(true);
+    expect(contract.verifyAndStoreClaim).toHaveBeenCalledWith(1, '0x00');
   });
 
-  test('invalid proof emits failure', async () => {
-    mockVerifier.verifyAndStoreClaim.mockResolvedValue(false);
-    const result = await verifyClaim(mockVerifier, 1, '0x00');
+  test('returns false for invalid proof', async () => {
+    const contract = { verifyAndStoreClaim: jest.fn().mockResolvedValue(false) };
+    const result = await verifyClaim(contract, 1, '0x00');
     expect(result).toBe(false);
   });
 
-  test('replay is rejected', async () => {
-    mockVerifier.verifyAndStoreClaim
-      .mockResolvedValueOnce(true)
-      .mockRejectedValueOnce(new Error('already used'));
-    await verifyClaim(mockVerifier, 1, '0x00');
-    await expect(verifyClaim(mockVerifier, 1, '0x00')).rejects.toThrow('already used');
+  test('throws on contract error', async () => {
+    const contract = { verifyAndStoreClaim: jest.fn().mockRejectedValue(new Error('already used')) };
+    await expect(verifyClaim(contract, 1, '0x00')).rejects.toThrow('already used');
   });
 });
 

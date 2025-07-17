@@ -28,6 +28,7 @@ Required Backend Environment Variables
 ABSTRACT_RPC_URL: used in backend to connect to the Abstract testnet RPC
 HODL_MANAGER_ADDRESS: the deployed contract address used by the backend listener
 XP_BADGE_ADDRESS: XPBadge contract used for minting NFT rewards
+XP_VERIFIER_ADDRESS: XPVerifier contract used to validate ZK badge claims
 ### XP Persistence
 The backend listens for `RunCompleted` events from the `HODLManager` contract. When detected, `runCompletedListener.js` stores the XP reward using `db.updateXP(address, xpEarned)`. Ensure `ABSTRACT_RPC_URL` and `HODL_MANAGER_ADDRESS` are configured so this listener runs.
 
@@ -64,6 +65,7 @@ Use feature branches and open PRs. Lint before pushing. See checklist below.
 2. Export the store using `pnpm store export <dest>` and copy it into `scripts/pnpm-store/`.
 3. From the repo root run `scripts/setup-offline.sh` to install packages from that store.
 4. After the script completes, run `pnpm install:all` again so each workspace links the cached packages.
+5. To run tests offline, execute `scripts/setup-tests.sh` which installs Jest, Vitest and Hardhat from the store.
 
 The following packages must be available in the store for tests:
 - jest
