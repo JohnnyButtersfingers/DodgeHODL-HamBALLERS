@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useContracts } from '../hooks/useContracts';
 import { apiFetch } from '../services/useApiService';
+import xpVerificationService from '../services/xpVerificationService';
+import { useZKToasts } from './ZKErrorToast';
+import { zkLogger } from '../services/zkAnalyticsService';
+import '../styles/mobile-fixes.css';
 
 const BADGE_TYPES = [
   { id: 0, name: 'Participation', xpRange: '1-24 XP', emoji: '🥾', color: 'text-gray-400' },
@@ -14,6 +18,14 @@ const BADGE_TYPES = [
 const ClaimBadge = () => {
   const { address } = useWallet();
   const { contracts } = useContracts();
+  const {
+    showInvalidProof,
+    showNullifierReused,
+    showNotEligible,
+    showNetworkError,
+    showInsufficientGas,
+    showProofTimeout
+  } = useZKToasts();
   const [unclaimedBadges, setUnclaimedBadges] = useState([]);
   const [failedBadges, setFailedBadges] = useState([]);
   const [pendingBadges, setPendingBadges] = useState([]);
@@ -105,12 +117,86 @@ const ClaimBadge = () => {
     }
   };
 
+  const classifyProofError = (error) => {
+    const message = error.message.toLowerCase();
+    if (message.includes('nullifier')) return 'nullifier_reuse';
+    if (message.includes('timeout')) return 'timeout';
+    if (message.includes('invalid') || message.includes('verification')) return 'invalid_proof';
+    if (message.includes('network') || message.includes('connection')) return 'network_error';
+    if (message.includes('gas')) return 'insufficient_gas';
+    return 'unknown_error';
+  };
+
   const claimBadge = async (badge) => {
-    if (!address || !contracts?.hodlManager) return;
+    if (!address || !contracts?.xpBadge) {
+      showNetworkError({ message: 'Address or XP Badge contract not available' });
+      return;
+    }
 
     setClaiming(prev => ({ ...prev, [badge.id]: true }));
     
     try {
+      // Step 1: Generate ZK proof if XPVerifier is available and required
+      let verificationData = null;
+      if (contracts?.xpVerifier && (badge.requiresProof || badge.xpEarned >= 50)) {
+        try {
+          console.log('🔐 Generating ZK proof for XP verification...');
+          
+          // Log proof attempt
+          await zkLogger.logProofAttempt({
+            playerAddress: address,
+            claimedXP: badge.xpEarned,
+            runId: badge.runId,
+            badgeType: badge.name
+          });
+          
+          verificationData = await xpVerificationService.generateXPProof(
+            address,
+            badge.xpEarned,
+            badge.runId
+          );
+          
+          // Log successful proof generation
+          await zkLogger.logProofSuccess({
+            playerAddress: address,
+            claimedXP: badge.xpEarned,
+            nullifier: verificationData.nullifier,
+            proofSize: JSON.stringify(verificationData.proof).length
+          });
+          
+          console.log('✅ ZK proof generated successfully');
+        } catch (proofError) {
+          console.warn('⚠️ ZK proof generation failed:', proofError.message);
+          
+                     // Log proof failure with specific error handling
+           await zkLogger.logProofFailure({
+             playerAddress: address,
+             claimedXP: badge.xpEarned,
+             error: proofError.message,
+             errorType: classifyProofError(proofError)
+           });
+          
+          // Handle specific error types with appropriate UX
+          if (proofError.message.includes('nullifier')) {
+            showNullifierReused(proofError.nullifier || 'unknown');
+            return;
+          } else if (proofError.message.includes('timeout')) {
+            showProofTimeout();
+            return;
+          } else if (proofError.message.includes('invalid')) {
+            showInvalidProof(proofError.message);
+            return;
+          }
+          
+          // Continue without verification for lower XP amounts
+          if (badge.xpEarned >= 100) {
+            showNotEligible(100, badge.xpEarned);
+            return;
+          }
+        }
+      }
+
+      // Step 2: Submit to backend for badge minting
       const response = await apiFetch('/api/badges/claim', {
         method: 'POST',
         headers: {
@@ -121,7 +207,8 @@ const ClaimBadge = () => {
           tokenId: badge.tokenId,
           xpEarned: badge.xpEarned,
           season: badge.season,
-          runId: badge.runId
+          runId: badge.runId,
+          verificationData // Include ZK proof if available
         }),
       });
 
@@ -130,23 +217,43 @@ const ClaimBadge = () => {
         if (result.success) {
           // Remove from unclaimed badges
           setUnclaimedBadges(prev => prev.filter(b => b.id !== badge.id));
-          // Show success message
+          
+          // Show success message with transaction hash
           console.log('Badge claimed successfully:', result.txHash);
+          
+          // If XP verification was used, log that too
+          if (verificationData) {
+            console.log('XP verified on-chain:', verificationData.nullifier);
+          }
         } else {
           throw new Error(result.error || 'Failed to claim badge');
         }
       } else {
-        throw new Error('Failed to claim badge');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to claim badge');
       }
     } catch (error) {
       console.error('Error claiming badge:', error);
+      
+      // Handle different types of errors with appropriate UX
+      if (error.message.includes('gas')) {
+        showInsufficientGas('Unknown', 'Unknown');
+      } else if (error.message.includes('network') || error.message.includes('connection')) {
+        showNetworkError(error);
+      } else if (error.message.includes('not eligible')) {
+        showNotEligible(badge.xpEarned, 0);
+      } else {
+        showInvalidProof(error.message);
+      }
+      
       // Move to failed badges if not already there
       if (!failedBadges.find(b => b.id === badge.id)) {
         setFailedBadges(prev => [...prev, {
           ...badge,
           status: 'failed',
           failureReason: error.message,
-          retryCount: (badge.retryCount || 0) + 1
+          retryCount: (badge.retryCount || 0) + 1,
+          lastAttempt: new Date().toISOString()
         }]);
       }
       setUnclaimedBadges(prev => prev.filter(b => b.id !== badge.id));
@@ -358,9 +465,9 @@ const ClaimBadge = () => {
 
       {/* Unclaimed Badges */}
       {unclaimedBadges.length > 0 && (
-        <div className="bg-gray-800/50 rounded-lg overflow-hidden">
-          <div className="p-6 border-b border-gray-700">
-            <h2 className="text-xl font-semibold text-white">
+        <div className="badge-modal bg-gray-800/50 rounded-lg overflow-hidden">
+          <div className="badge-modal-header">
+            <h2 className="responsive-text-xl font-semibold text-white">
               🎁 Unclaimed Badges ({unclaimedBadges.length})
             </h2>
             <p className="text-gray-400 text-sm mt-1">
@@ -368,15 +475,15 @@ const ClaimBadge = () => {
             </p>
           </div>
           
-          <div className="divide-y divide-gray-700">
+          <div className="badge-modal-content divide-y divide-gray-700 mobile-scroll">
             {unclaimedBadges.map(badge => {
               const badgeType = getBadgeType(badge.tokenId);
               return (
-                <div key={badge.id} className="p-6 flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-3xl">{badgeType.emoji}</div>
-                    <div>
-                      <div className={`font-semibold ${badgeType.color}`}>
+                <div key={badge.id} className="badge-list-item">
+                  <div className="badge-info flex items-center space-x-3 sm:space-x-4 flex-1">
+                    <div className="text-2xl sm:text-3xl flex-shrink-0">{badgeType.emoji}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className={`font-semibold ${badgeType.color} responsive-text-lg`}>
                         {badgeType.name} Badge
                       </div>
                       <div className="text-sm text-gray-400">
@@ -388,13 +495,15 @@ const ClaimBadge = () => {
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => claimBadge(badge)}
-                    disabled={claiming[badge.id]}
-                    className="bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white px-4 py-2 rounded text-sm transition-colors"
-                  >
-                    {claiming[badge.id] ? 'Claiming...' : 'Claim Badge'}
-                  </button>
+                  <div className="badge-actions flex-shrink-0">
+                    <button
+                      onClick={() => claimBadge(badge)}
+                      disabled={claiming[badge.id]}
+                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus"
+                    >
+                      {claiming[badge.id] ? 'Claiming...' : 'Claim Badge'}
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -404,9 +513,9 @@ const ClaimBadge = () => {
 
       {/* Failed Badges */}
       {failedBadges.length > 0 && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded-lg overflow-hidden">
-          <div className="p-6 border-b border-red-500/30">
-            <h2 className="text-xl font-semibold text-white">
+        <div className="badge-modal bg-red-900/20 border border-red-500/30 rounded-lg overflow-hidden">
+          <div className="badge-modal-header border-b border-red-500/30">
+            <h2 className="responsive-text-xl font-semibold text-white">
               ⚠️ Failed Badges ({failedBadges.length})
             </h2>
             <p className="text-gray-400 text-sm mt-1">
@@ -414,61 +523,60 @@ const ClaimBadge = () => {
             </p>
           </div>
           
-          <div className="divide-y divide-red-500/30">
+          <div className="badge-modal-content divide-y divide-red-500/30 mobile-scroll">
             {failedBadges.map(badge => {
               const badgeType = getBadgeType(badge.tokenId);
               const canRetry = !isRetryLimitReached(badge);
               const isUnclaimable = isRetryLimitReached(badge);
               
               return (
-                <div key={badge.id} className="p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-4">
-                      <div className="relative">
-                        <div className={`text-3xl ${isUnclaimable ? 'opacity-30' : 'opacity-50'}`}>
-                          {badgeType.emoji}
+                <div key={badge.id} className="badge-list-item">
+                  <div className="badge-info flex items-start space-x-3 flex-1">
+                    <div className="relative flex-shrink-0">
+                      <div className={`text-2xl sm:text-3xl ${isUnclaimable ? 'opacity-30' : 'opacity-50'}`}>
+                        {badgeType.emoji}
+                      </div>
+                      {isUnclaimable && (
+                        <div className="absolute -top-1 -right-1 text-red-500 text-sm sm:text-lg">❌</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <div className={`font-semibold ${badgeType.color} ${isUnclaimable ? 'opacity-50' : ''} responsive-text-lg`}>
+                          {badgeType.name} Badge
                         </div>
                         {isUnclaimable && (
-                          <div className="absolute -top-1 -right-1 text-red-500 text-lg">❌</div>
+                          <div 
+                            className="text-red-400 text-xs sm:text-sm font-medium cursor-help"
+                            title="Retry limit reached. Contact support or refresh your run."
+                          >
+                            (Unclaimable)
+                          </div>
                         )}
                       </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <div className={`font-semibold ${badgeType.color} ${isUnclaimable ? 'opacity-50' : ''}`}>
-                            {badgeType.name} Badge
-                          </div>
-                          {isUnclaimable && (
-                            <div 
-                              className="text-red-400 text-sm font-medium cursor-help"
-                              title="Retry limit reached. Contact support or refresh your run."
-                            >
-                              (Unclaimable)
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                          {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Run: {badge.runId} • Season {badge.season}
-                        </div>
+                      <div className="text-sm text-gray-400">
+                        {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Run: {badge.runId} • Season {badge.season}
                       </div>
                     </div>
-                    
-                    <div className="flex space-x-2">
-                      {canRetry ? (
-                        <button
-                          onClick={() => retryBadgeClaim(badge)}
-                          disabled={retrying[badge.id]}
-                          className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black px-3 py-1 rounded text-sm transition-colors"
-                        >
-                          {retrying[badge.id] ? 'Retrying...' : 'Retry'}
-                        </button>
-                      ) : (
-                        <div 
-                          className="bg-red-600/30 text-red-300 px-3 py-1 rounded text-sm cursor-help"
-                          title="Retry limit reached. Contact support or refresh your run."
-                        >
+                  </div>
+                  
+                  <div className="badge-actions flex-shrink-0">
+                    {canRetry ? (
+                      <button
+                        onClick={() => retryBadgeClaim(badge)}
+                        disabled={retrying[badge.id]}
+                        className="mobile-button-sm bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black rounded text-sm transition-colors mobile-focus"
+                      >
+                        {retrying[badge.id] ? 'Retrying...' : 'Retry'}
+                      </button>
+                    ) : (
+                      <div 
+                        className="mobile-button-sm bg-red-600/30 text-red-300 rounded text-sm cursor-help pointer-events-none"
+                        title="Retry limit reached. Contact support or refresh your run."
+                      >
                           Max Retries
                         </div>
                       )}

@@ -8,6 +8,7 @@ import MoveSelector from './MoveSelector';
 import RunResultDisplay from './RunResultDisplay';
 import GameSummary from './GameSummary';
 import ActivitySidebar from './ActivitySidebar';
+import XpOverlay from './XpOverlay';
 import useRunEngine from '../lib/useRunEngine';
 
 const GameView = () => {
@@ -26,9 +27,25 @@ const GameView = () => {
   const { liveReplay, connected: wsConnected } = useWebSocket();
 
   const [selectedMoves, setSelectedMoves] = useState([]);
-  const engine = useRunEngine(selectedMoves);
+  const [xpOverlayVisible, setXpOverlayVisible] = useState(false);
+  const [currentXpGained, setCurrentXpGained] = useState(0);
   const [gamePhase, setGamePhase] = useState('setup'); // setup, running, decision, complete
   const [hodlDecision, setHodlDecision] = useState(null);
+  const [contractError, setContractError] = useState(null);
+
+  // XP gained callback for useRunEngine
+  const handleXpGained = useCallback((xpAmount) => {
+    setCurrentXpGained(xpAmount);
+    setXpOverlayVisible(true);
+  }, []);
+
+  // Run completion callback for useRunEngine
+  const handleRunComplete = useCallback((runData) => {
+    console.log('Run completed with data:', runData);
+    // Additional completion handling can go here
+  }, []);
+
+  const engine = useRunEngine(selectedMoves, handleXpGained, handleRunComplete);
 
   // Game phases: setup -> running -> decision -> complete
   useEffect(() => {
@@ -198,6 +215,40 @@ const GameView = () => {
 
         </div>
       </div>
+
+      {/* XP Overlay - Global overlay for XP feedback */}
+      <XpOverlay
+        xpGained={currentXpGained}
+        isVisible={xpOverlayVisible}
+        onAnimationComplete={() => setXpOverlayVisible(false)}
+        duration={2500}
+        position="center"
+      />
+
+      {/* Contract Error Toast */}
+      {(contractError || engine.error) && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <div className="bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Transaction Failed</p>
+                <p className="text-sm opacity-90">
+                  {contractError || engine.error}
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setContractError(null);
+                  engine.setError?.(null);
+                }}
+                className="ml-4 text-white hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

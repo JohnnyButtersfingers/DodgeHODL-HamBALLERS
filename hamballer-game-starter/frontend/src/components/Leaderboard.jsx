@@ -137,13 +137,30 @@ const Leaderboard = () => {
         fetchPlayerBadges(leaderboard)
       ]);
 
-      // Merge Supabase and contract data
-      const mergedData = leaderboard.map(player => ({
-        ...player,
-        contractXp: contractXpData[player.address] || 0,
-        totalXp: (player.totalXp || 0) + (contractXpData[player.address] || 0),
-        badges: playerBadges[player.address] || []
-      }));
+      // Fetch real contract stats and merge with backend data
+      const contractStats = await fetchContractXpData(leaderboard);
+      
+      // Merge Supabase, contract, and badge data
+      const mergedData = leaderboard.map(player => {
+        const contractData = contractStats.find(c => c.address === player.address);
+        return {
+          ...player,
+          // Prioritize contract data over backend data where available
+          contractXp: contractData?.xp || 0,
+          totalRuns: contractData?.totalRuns || player.totalRuns || 0,
+          totalDbpEarned: contractData?.totalDbpEarned || player.totalDbpEarned || 0,
+          level: contractData?.level || player.level || 1,
+          totalXp: Math.max(
+            player.totalXp || 0,
+            contractData?.xp || 0
+          ),
+          winRate: contractData?.totalRuns > 0 
+            ? ((contractData.successfulRuns / contractData.totalRuns) * 100).toFixed(1)
+            : ((player.successfulRuns || 0) / Math.max(player.totalRuns || 1, 1) * 100).toFixed(1),
+          badges: playerBadges[player.address] || [],
+          hasContractData: !!contractData
+        };
+      });
 
       setLeaderboardData(mergedData);
     } catch (error) {
@@ -155,31 +172,47 @@ const Leaderboard = () => {
   };
 
   const fetchContractXpData = async (players) => {
-    if (!contracts?.hodlManager) return;
+    if (!contracts?.hodlManager || !getPlayerStats) return;
 
     try {
+      // Batch fetch player stats from contract
       const xpPromises = players.map(async (player) => {
         try {
           const stats = await getPlayerStats(player.address);
           return {
             address: player.address,
-            xp: stats?.currentXp ? parseInt(stats.currentXp) : 0
+            xp: stats?.currentXp ? parseInt(stats.currentXp) : 0,
+            level: stats?.level ? parseInt(stats.level) : 1,
+            totalRuns: stats?.totalRuns ? parseInt(stats.totalRuns) : 0,
+            successfulRuns: stats?.successfulRuns ? parseInt(stats.successfulRuns) : 0,
+            totalDbpEarned: stats?.totalDbpEarned ? parseInt(stats.totalDbpEarned) : 0
           };
         } catch (error) {
-          console.error(`Error fetching XP for ${player.address}:`, error);
-          return { address: player.address, xp: 0 };
+          console.error(`Error fetching stats for ${player.address}:`, error);
+          return { 
+            address: player.address, 
+            xp: 0, 
+            level: 1, 
+            totalRuns: 0, 
+            successfulRuns: 0, 
+            totalDbpEarned: 0 
+          };
         }
       });
 
-      const xpResults = await Promise.all(xpPromises);
+      const statsResults = await Promise.all(xpPromises);
       const xpData = {};
-      xpResults.forEach(result => {
+      statsResults.forEach(result => {
         xpData[result.address] = result.xp;
       });
 
       setContractXpData(xpData);
+      
+      // Update leaderboard with real contract data
+      return statsResults;
     } catch (error) {
       console.error('Error fetching contract XP data:', error);
+      return [];
     }
   };
 
@@ -502,8 +535,16 @@ const Leaderboard = () => {
                       
                       <td className="py-4 px-3 md:px-6">
                         <div>
-                          <div className="font-mono text-white text-sm">
-                            {player.address.slice(0, 6)}...{player.address.slice(-4)}
+                          <div className="flex items-center space-x-2">
+                            <span className="font-mono text-white text-sm">
+                              {player.address.slice(0, 6)}...{player.address.slice(-4)}
+                            </span>
+                            {player.hasContractData && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400">
+                                <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1"></div>
+                                Live
+                              </span>
+                            )}
                           </div>
                           {renderPlayerBadges(player.badges)}
                         </div>

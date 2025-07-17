@@ -13,6 +13,10 @@ import Dashboard from './components/Dashboard';
 import ReplayViewer from './components/ReplayViewer';
 import Leaderboard from './components/Leaderboard';
 import ClaimBadge from './components/ClaimBadge';
+import LaunchDashboard from './components/LaunchDashboard';
+import RecentClaims from './components/RecentClaims';
+import QASummaryModal from './components/QASummaryModal';
+import { useZKToasts } from './components/ZKErrorToast';
 
 // Hooks
 import { WebSocketProvider } from './services/useWebSocketService';
@@ -53,6 +57,8 @@ const wagmiConfig = createConfig({
 });
 
 function App() {
+  const { ToastContainer } = useZKToasts();
+
   return (
     <WagmiConfig config={wagmiConfig}>
       <RainbowKitProvider 
@@ -118,8 +124,14 @@ function App() {
                         <Route path="leaderboard" element={<Leaderboard />} />
                         <Route path="badges" element={<ClaimBadge />} />
                         <Route path="replay/:runId?" element={<ReplayViewer />} />
+                        {/* Internal QA & Launch Tools */}
+                        <Route path="launch-dashboard" element={<LaunchDashboard />} />
+                        <Route path="dev/recent-claims" element={<RecentClaims />} />
                       </Route>
                     </Routes>
+                    
+                    {/* Global Toast Container */}
+                    <ToastContainer position="top-right" />
                   </div>
                 </Router>
               </GameStateProvider>
