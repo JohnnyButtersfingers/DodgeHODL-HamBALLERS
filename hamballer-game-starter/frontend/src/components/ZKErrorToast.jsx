@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import '../styles/mobile-fixes.css';
 
 const ZKErrorToast = ({ 
   error, 
@@ -254,11 +255,7 @@ const ZKErrorToast = ({
                               action.handler();
                               if (action.closeToast) handleClose();
                             }}
-                            className="
-                              text-xs px-3 py-1 rounded-md
-                              bg-white bg-opacity-20 hover:bg-opacity-30
-                              transition-colors duration-200
-                            "
+                            className="mobile-button-sm bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors duration-200 rounded-md mobile-focus"
                           >
                             {action.label}
                           </button>
@@ -271,10 +268,7 @@ const ZKErrorToast = ({
                 {/* Close Button */}
                 <motion.button
                   onClick={handleClose}
-                  className="
-                    flex-shrink-0 text-white text-opacity-60 hover:text-opacity-100
-                    transition-colors duration-200 p-1
-                  "
+                  className="mobile-icon-button text-white text-opacity-60 hover:text-opacity-100 transition-colors duration-200 mobile-focus"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                 >

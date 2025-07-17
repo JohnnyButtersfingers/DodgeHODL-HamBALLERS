@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useContracts } from '../hooks/useContracts';
 import { zkLogger } from '../services/zkAnalyticsService';
+import '../styles/mobile-fixes.css';
 
 const QASummaryModal = ({ isOpen, onClose }) => {
   const { address } = useWallet();
@@ -220,8 +221,8 @@ const QASummaryModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="mobile-modal-container bg-black bg-opacity-50">
+      <div className="badge-modal bg-gray-800 max-w-6xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div>
@@ -230,13 +231,13 @@ const QASummaryModal = ({ isOpen, onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white text-xl"
+            className="modal-close-button text-gray-400 hover:text-white mobile-focus"
           >
-            ✕
+            <span className="text-xl">✕</span>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="badge-modal-content flex-1 p-6 mobile-scroll">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -306,7 +307,7 @@ const QASummaryModal = ({ isOpen, onClose }) => {
                                 e.stopPropagation();
                                 runTestModule(module.name);
                               }}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                              className="mobile-button-sm bg-blue-500 hover:bg-blue-600 text-white rounded text-sm mobile-focus"
                             >
                               Run
                             </button>
@@ -444,13 +445,13 @@ const QASummaryModal = ({ isOpen, onClose }) => {
             <div className="flex items-center space-x-4">
               <button
                 onClick={fetchQASummary}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                className="mobile-button bg-blue-500 hover:bg-blue-600 text-white rounded mobile-focus"
               >
                 Refresh
               </button>
               <button
                 onClick={() => window.open('/qa-suite-report-latest.json', '_blank')}
-                className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded"
+                className="mobile-button bg-gray-600 hover:bg-gray-500 text-white rounded mobile-focus"
               >
                 Raw JSON
               </button>

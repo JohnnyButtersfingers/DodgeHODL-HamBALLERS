@@ -5,6 +5,7 @@ import { apiFetch } from '../services/useApiService';
 import xpVerificationService from '../services/xpVerificationService';
 import { useZKToasts } from './ZKErrorToast';
 import { zkLogger } from '../services/zkAnalyticsService';
+import '../styles/mobile-fixes.css';
 
 const BADGE_TYPES = [
   { id: 0, name: 'Participation', xpRange: '1-24 XP', emoji: '🥾', color: 'text-gray-400' },
@@ -464,9 +465,9 @@ const ClaimBadge = () => {
 
       {/* Unclaimed Badges */}
       {unclaimedBadges.length > 0 && (
-        <div className="bg-gray-800/50 rounded-lg overflow-hidden">
-          <div className="p-6 border-b border-gray-700">
-            <h2 className="text-xl font-semibold text-white">
+        <div className="badge-modal bg-gray-800/50 rounded-lg overflow-hidden">
+          <div className="badge-modal-header">
+            <h2 className="responsive-text-xl font-semibold text-white">
               🎁 Unclaimed Badges ({unclaimedBadges.length})
             </h2>
             <p className="text-gray-400 text-sm mt-1">
@@ -474,15 +475,15 @@ const ClaimBadge = () => {
             </p>
           </div>
           
-          <div className="divide-y divide-gray-700">
+          <div className="badge-modal-content divide-y divide-gray-700 mobile-scroll">
             {unclaimedBadges.map(badge => {
               const badgeType = getBadgeType(badge.tokenId);
               return (
-                <div key={badge.id} className="p-6 flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-3xl">{badgeType.emoji}</div>
-                    <div>
-                      <div className={`font-semibold ${badgeType.color}`}>
+                <div key={badge.id} className="badge-list-item">
+                  <div className="badge-info flex items-center space-x-3 sm:space-x-4 flex-1">
+                    <div className="text-2xl sm:text-3xl flex-shrink-0">{badgeType.emoji}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className={`font-semibold ${badgeType.color} responsive-text-lg`}>
                         {badgeType.name} Badge
                       </div>
                       <div className="text-sm text-gray-400">
@@ -494,13 +495,15 @@ const ClaimBadge = () => {
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => claimBadge(badge)}
-                    disabled={claiming[badge.id]}
-                    className="bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white px-4 py-2 rounded text-sm transition-colors"
-                  >
-                    {claiming[badge.id] ? 'Claiming...' : 'Claim Badge'}
-                  </button>
+                  <div className="badge-actions flex-shrink-0">
+                    <button
+                      onClick={() => claimBadge(badge)}
+                      disabled={claiming[badge.id]}
+                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus"
+                    >
+                      {claiming[badge.id] ? 'Claiming...' : 'Claim Badge'}
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -510,9 +513,9 @@ const ClaimBadge = () => {
 
       {/* Failed Badges */}
       {failedBadges.length > 0 && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded-lg overflow-hidden">
-          <div className="p-6 border-b border-red-500/30">
-            <h2 className="text-xl font-semibold text-white">
+        <div className="badge-modal bg-red-900/20 border border-red-500/30 rounded-lg overflow-hidden">
+          <div className="badge-modal-header border-b border-red-500/30">
+            <h2 className="responsive-text-xl font-semibold text-white">
               ⚠️ Failed Badges ({failedBadges.length})
             </h2>
             <p className="text-gray-400 text-sm mt-1">
@@ -520,61 +523,60 @@ const ClaimBadge = () => {
             </p>
           </div>
           
-          <div className="divide-y divide-red-500/30">
+          <div className="badge-modal-content divide-y divide-red-500/30 mobile-scroll">
             {failedBadges.map(badge => {
               const badgeType = getBadgeType(badge.tokenId);
               const canRetry = !isRetryLimitReached(badge);
               const isUnclaimable = isRetryLimitReached(badge);
               
               return (
-                <div key={badge.id} className="p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-4">
-                      <div className="relative">
-                        <div className={`text-3xl ${isUnclaimable ? 'opacity-30' : 'opacity-50'}`}>
-                          {badgeType.emoji}
+                <div key={badge.id} className="badge-list-item">
+                  <div className="badge-info flex items-start space-x-3 flex-1">
+                    <div className="relative flex-shrink-0">
+                      <div className={`text-2xl sm:text-3xl ${isUnclaimable ? 'opacity-30' : 'opacity-50'}`}>
+                        {badgeType.emoji}
+                      </div>
+                      {isUnclaimable && (
+                        <div className="absolute -top-1 -right-1 text-red-500 text-sm sm:text-lg">❌</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <div className={`font-semibold ${badgeType.color} ${isUnclaimable ? 'opacity-50' : ''} responsive-text-lg`}>
+                          {badgeType.name} Badge
                         </div>
                         {isUnclaimable && (
-                          <div className="absolute -top-1 -right-1 text-red-500 text-lg">❌</div>
+                          <div 
+                            className="text-red-400 text-xs sm:text-sm font-medium cursor-help"
+                            title="Retry limit reached. Contact support or refresh your run."
+                          >
+                            (Unclaimable)
+                          </div>
                         )}
                       </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <div className={`font-semibold ${badgeType.color} ${isUnclaimable ? 'opacity-50' : ''}`}>
-                            {badgeType.name} Badge
-                          </div>
-                          {isUnclaimable && (
-                            <div 
-                              className="text-red-400 text-sm font-medium cursor-help"
-                              title="Retry limit reached. Contact support or refresh your run."
-                            >
-                              (Unclaimable)
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                          {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Run: {badge.runId} • Season {badge.season}
-                        </div>
+                      <div className="text-sm text-gray-400">
+                        {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Run: {badge.runId} • Season {badge.season}
                       </div>
                     </div>
-                    
-                    <div className="flex space-x-2">
-                      {canRetry ? (
-                        <button
-                          onClick={() => retryBadgeClaim(badge)}
-                          disabled={retrying[badge.id]}
-                          className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black px-3 py-1 rounded text-sm transition-colors"
-                        >
-                          {retrying[badge.id] ? 'Retrying...' : 'Retry'}
-                        </button>
-                      ) : (
-                        <div 
-                          className="bg-red-600/30 text-red-300 px-3 py-1 rounded text-sm cursor-help"
-                          title="Retry limit reached. Contact support or refresh your run."
-                        >
+                  </div>
+                  
+                  <div className="badge-actions flex-shrink-0">
+                    {canRetry ? (
+                      <button
+                        onClick={() => retryBadgeClaim(badge)}
+                        disabled={retrying[badge.id]}
+                        className="mobile-button-sm bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black rounded text-sm transition-colors mobile-focus"
+                      >
+                        {retrying[badge.id] ? 'Retrying...' : 'Retry'}
+                      </button>
+                    ) : (
+                      <div 
+                        className="mobile-button-sm bg-red-600/30 text-red-300 rounded text-sm cursor-help pointer-events-none"
+                        title="Retry limit reached. Contact support or refresh your run."
+                      >
                           Max Retries
                         </div>
                       )}

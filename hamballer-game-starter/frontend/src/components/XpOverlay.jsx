@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useXp } from '../contexts/XpContext';
+import '../styles/mobile-fixes.css';
 
 const XpOverlay = ({ 
   xpGained = 0, 
@@ -30,16 +31,17 @@ const XpOverlay = ({
     }
   }, [isVisible, xpGained, duration, setXp, onAnimationComplete]);
 
-  // Dynamic position styles
+  // Dynamic position styles with mobile fixes
   const getPositionStyles = () => {
+    const baseClasses = 'xp-overlay-container';
     switch (position) {
       case 'top-right':
-        return 'top-4 right-4';
+        return `${baseClasses} xp-overlay-top-right top-4 right-4`;
       case 'bottom-left':
-        return 'bottom-4 left-4';
+        return `${baseClasses} xp-overlay-bottom-left bottom-4 left-4`;
       case 'center':
       default:
-        return 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2';
+        return `${baseClasses} xp-overlay-center`;
     }
   };
 
@@ -57,14 +59,11 @@ const XpOverlay = ({
   if (!isVisible && !isAnimating) return null;
 
   return (
-    <div className={`fixed z-50 ${getPositionStyles()}`}>
+    <div className={getPositionStyles()}>
       <div 
         className={`
-          bg-gradient-to-r from-yellow-400 to-orange-500 
-          text-white font-bold text-lg sm:text-xl md:text-2xl
-          px-4 py-2 sm:px-6 sm:py-3
-          rounded-lg shadow-2xl
-          border-2 border-yellow-300
+          xp-popup mobile-animation
+          text-white
           transition-all duration-500 ease-out
           ${getAnimationClasses()}
         `}
@@ -91,13 +90,13 @@ const XpOverlay = ({
         )}
       </div>
       
-      {/* Floating particles effect for larger XP gains */}
-      {xpGained >= 50 && isAnimating && (
-        <div className="absolute inset-0 pointer-events-none">
-          {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className={`
+              {/* Floating particles effect for larger XP gains */}
+        {xpGained >= 50 && isAnimating && (
+          <div className="xp-particles">
+            {[...Array(3)].map((_, i) => (
+              <div
+                key={i}
+                className={`
                 absolute w-2 h-2 bg-yellow-400 rounded-full
                 animate-bounce
               `}
