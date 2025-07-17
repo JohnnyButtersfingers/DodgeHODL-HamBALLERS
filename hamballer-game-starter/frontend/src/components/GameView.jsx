@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useGameState } from '../hooks/useGameState';
-import { useWebSocket } from '../services/useWebSocketService.jsx';
+import { useWebSocket } from '../services/useWebSocketService';
 import RunProgress from './RunProgress';
 import LiveReplay from './LiveReplay';
 import MoveSelector from './MoveSelector';
