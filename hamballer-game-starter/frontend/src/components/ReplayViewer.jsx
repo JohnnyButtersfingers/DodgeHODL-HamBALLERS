@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../services/useApiService';
+import SpriteReplayViewer from './SpriteReplayViewer';
+import { initializeSpriteSystem } from '../lib/spriteManager';
 
 const ReplayViewer = () => {
   const { runId } = useParams();
@@ -18,6 +20,9 @@ const ReplayViewer = () => {
     if (runId) {
       fetchReplayData(runId);
     }
+    
+    // Initialize sprite system
+    initializeSpriteSystem().catch(console.error);
   }, [runId]);
 
   useEffect(() => {
@@ -323,7 +328,22 @@ const ReplayViewer = () => {
                 </div>
               </div>
 
-              {/* Current Frame Visualization */}
+              {/* Sprite-based Replay Visualization */}
+              <div className="bg-gray-800/50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  Sprite Replay Viewer
+                </h3>
+                
+                <SpriteReplayViewer
+                  replay={selectedReplay}
+                  currentFrame={currentFrame}
+                  isPlaying={isPlaying}
+                  width={800}
+                  height={400}
+                />
+              </div>
+
+              {/* Frame Details */}
               <div className="bg-gray-800/50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">
                   Frame {currentFrame + 1}: {currentFrameData?.event || 'Move'}

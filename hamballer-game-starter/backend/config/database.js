@@ -1,24 +1,74 @@
 const { createClient } = require('@supabase/supabase-js');
 const { ethers } = require('ethers');
+const { config, validation } = require('./environment');
 
 // Supabase client - with fallback for development
 let supabase = null;
+let supabaseService = null;
 
-if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY && 
-    !process.env.SUPABASE_URL.includes('your_supabase') && 
-    !process.env.SUPABASE_ANON_KEY.includes('your_supabase')) {
-  try {
-    supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_ANON_KEY
-    );
-    console.log('✅ Supabase client initialized');
-  } catch (error) {
-    console.warn('⚠️ Failed to initialize Supabase client:', error.message);
+// Enhanced Supabase initialization with better error handling
+function initializeSupabase() {
+  // Check if credentials are properly configured
+  if (!validation.isSupabaseReady()) {
+    console.warn('⚠️ Supabase credentials not configured');
+    console.log('📋 To configure Supabase:');
+    console.log('   1. Create a Supabase project at https://supabase.com');
+    console.log('   2. Copy your project URL and anon key');
+    console.log('   3. Add them to your .env file:');
+    console.log('      SUPABASE_URL=https://your-project-id.supabase.co');
+    console.log('      SUPABASE_ANON_KEY=your_anon_key_here');
+    console.log('      SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here');
+    console.log('   4. Import the database schema from backend/database_schema.sql');
+    console.log('   5. Restart the backend server');
+    return false;
   }
-} else {
-  console.warn('⚠️ Supabase credentials not configured - using mock database');
+
+  try {
+    // Initialize both anon and service role clients
+    supabase = createClient(config.supabase.url, config.supabase.anonKey);
+    
+    if (config.supabase.serviceKey) {
+      supabaseService = createClient(config.supabase.url, config.supabase.serviceKey);
+      console.log('✅ Supabase service role client initialized');
+    }
+    
+    console.log('✅ Supabase client initialized successfully');
+    
+    // Test the connection
+    testSupabaseConnection();
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to initialize Supabase client:', error.message);
+    return false;
+  }
 }
+
+async function testSupabaseConnection() {
+  if (!supabase) return;
+  
+  try {
+    // Simple test query to verify connection
+    const { data, error } = await supabase
+      .from('run_logs')
+      .select('count')
+      .limit(1);
+    
+    if (error) {
+      console.warn('⚠️ Supabase connection test failed:', error.message);
+      console.log('📋 This might be due to:');
+      console.log('   - Database schema not imported');
+      console.log('   - RLS policies not configured');
+      console.log('   - Network connectivity issues');
+    } else {
+      console.log('✅ Supabase connection test successful');
+    }
+  } catch (error) {
+    console.warn('⚠️ Supabase connection test failed:', error.message);
+  }
+}
+
+// Initialize Supabase on module load
+const supabaseInitialized = initializeSupabase();
 
 // Blockchain provider and contracts
 let provider, dbpToken, boostNFT, hodlManager;
@@ -49,21 +99,20 @@ const HODL_MANAGER_ABI = [
 // Initialize blockchain connection
 function initializeContracts() {
   try {
-    // Use Abstract testnet or localhost
-    const rpcUrl = process.env.ABSTRACT_RPC_URL || 'http://127.0.0.1:8545';
-    provider = new ethers.JsonRpcProvider(rpcUrl);
+    // Use configured RPC URL
+    provider = new ethers.JsonRpcProvider(config.blockchain.rpcUrl);
 
     // Initialize contract instances
-    if (process.env.DBP_TOKEN_ADDRESS) {
-      dbpToken = new ethers.Contract(process.env.DBP_TOKEN_ADDRESS, DBP_TOKEN_ABI, provider);
+    if (config.contracts.dbpToken) {
+      dbpToken = new ethers.Contract(config.contracts.dbpToken, DBP_TOKEN_ABI, provider);
     }
     
-    if (process.env.BOOST_NFT_ADDRESS) {
-      boostNFT = new ethers.Contract(process.env.BOOST_NFT_ADDRESS, BOOST_NFT_ABI, provider);
+    if (config.contracts.boostNft) {
+      boostNFT = new ethers.Contract(config.contracts.boostNft, BOOST_NFT_ABI, provider);
     }
     
-    if (process.env.HODL_MANAGER_ADDRESS) {
-      hodlManager = new ethers.Contract(process.env.HODL_MANAGER_ADDRESS, HODL_MANAGER_ABI, provider);
+    if (config.contracts.hodlManager) {
+      hodlManager = new ethers.Contract(config.contracts.hodlManager, HODL_MANAGER_ABI, provider);
     }
 
     console.log('✅ Blockchain contracts initialized');
@@ -228,8 +277,200 @@ const db = {
     return data || [];
   },
 
+  // Player stats operations
+  async getPlayerStats(playerAddress) {
+    if (!supabase) {
+      console.log('📝 Mock: Getting player stats for', playerAddress);
+      return {
+        player_address: playerAddress,
+        current_xp: '0',
+        level: '1',
+        total_dbp_earned: '0',
+        total_runs: '0',
+        successful_runs: '0'
+      };
+    }
+
+    const { data, error } = await supabase
+      .from('player_stats')
+      .select('*')
+      .eq('player_address', playerAddress)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('❌ Database error fetching player stats:', error);
+      throw error;
+    }
+
+    return data || {
+      player_address: playerAddress,
+      current_xp: '0',
+      level: '1',
+      total_dbp_earned: '0',
+      total_runs: '0',
+      successful_runs: '0'
+    };
+  },
+
+  async updatePlayerStats(playerAddress, stats) {
+    if (!supabase) {
+      console.log('📝 Mock: Updating player stats for', playerAddress, stats);
+      return { success: true };
+    }
+
+    const { error } = await supabase
+      .from('player_stats')
+      .upsert({
+        player_address: playerAddress,
+        ...stats,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'player_address'
+      });
+
+    if (error) {
+      console.error('❌ Database error updating player stats:', error);
+      throw error;
+    }
+
+    return { success: true };
+  },
+
+  // XP Update function - specifically for RunCompleted events
+  async updateXP(playerAddress, xpEarned, dbpEarned, runId) {
+    console.log(`🎯 Updating XP for ${playerAddress}: +${xpEarned} XP, +${dbpEarned} DBP`);
+    
+    if (!supabase) {
+      console.log('📝 Mock: XP update would happen here');
+      return { success: true, xpEarned, dbpEarned };
+    }
+
+    try {
+      // Get current player stats
+      const { data: currentStats } = await supabase
+        .from('player_stats')
+        .select('*')
+        .eq('player_address', playerAddress)
+        .single();
+
+      const currentXp = currentStats ? parseInt(currentStats.current_xp || 0) : 0;
+      const currentDbp = currentStats ? parseInt(currentStats.total_dbp_earned || 0) : 0;
+      
+      const newXp = currentXp + parseInt(xpEarned);
+      const newDbp = currentDbp + parseInt(dbpEarned);
+      const newLevel = calculateLevel(newXp);
+
+      // Update player stats with new XP and DBP
+      const { error: updateError } = await supabase
+        .from('player_stats')
+        .upsert({
+          player_address: playerAddress,
+          current_xp: newXp.toString(),
+          level: newLevel.toString(),
+          total_dbp_earned: newDbp.toString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'player_address'
+        });
+
+      if (updateError) {
+        console.error('❌ Error updating player stats:', updateError);
+        throw updateError;
+      }
+
+      // Log the XP reward event
+      const { error: logError } = await supabase
+        .from('event_logs')
+        .insert({
+          event_type: 'xp_reward',
+          player_address: playerAddress,
+          xp_earned: xpEarned.toString(),
+          dbp_earned: dbpEarned.toString(),
+          run_id: runId,
+          event_data: JSON.stringify({
+            xpEarned,
+            dbpEarned,
+            runId,
+            previousXp: currentXp,
+            newXp,
+            previousLevel: calculateLevel(currentXp),
+            newLevel,
+            timestamp: new Date().toISOString()
+          }),
+          created_at: new Date().toISOString()
+        });
+
+      if (logError) {
+        console.error('❌ Error logging XP reward event:', logError);
+        // Don't throw here, as the main update succeeded
+      }
+
+      console.log(`✅ XP update successful: ${playerAddress} now has ${newXp} XP (Level ${newLevel}) and ${newDbp} DBP`);
+      
+      return {
+        success: true,
+        playerAddress,
+        xpEarned: parseInt(xpEarned),
+        dbpEarned: parseInt(dbpEarned),
+        previousXp: currentXp,
+        newXp,
+        previousLevel: calculateLevel(currentXp),
+        newLevel,
+        runId
+      };
+
+    } catch (error) {
+      console.error('❌ Error in updateXP:', error);
+      throw error;
+    }
+  },
+
+  // Test Supabase write functionality
+  async testSupabaseWrite() {
+    if (!supabase) {
+      return { success: false, message: 'Supabase not configured' };
+    }
+
+    try {
+      const testData = {
+        player_address: '0x0000000000000000000000000000000000000000',
+        current_xp: '100',
+        level: '2',
+        total_dbp_earned: '50',
+        total_runs: '5',
+        successful_runs: '3',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('player_stats')
+        .upsert([testData], {
+          onConflict: 'player_address'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return { success: false, message: error.message };
+      }
+
+      // Clean up test data
+      await supabase
+        .from('player_stats')
+        .delete()
+        .eq('player_address', '0x0000000000000000000000000000000000000000');
+
+      return { success: true, message: 'Supabase write test successful', data };
+
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  },
+
   // Add supabase reference for direct access when needed
-  supabase
+  supabase,
+  supabaseService
 };
 
 // Contract interaction helpers
@@ -248,40 +489,40 @@ const contracts = {
 
   async getPlayerStats(playerAddress) {
     if (!hodlManager) return null;
-
+    
     try {
       const stats = await hodlManager.getPlayerStats(playerAddress);
       return {
-        totalRuns: stats.totalRuns.toString(),
-        completedRuns: stats.completedRuns.toString(),
-        totalCPEarned: stats.totalCPEarned.toString(),
-        totalDBPEarned: ethers.formatEther(stats.totalDBPEarned),
-        bestRunCP: stats.bestRunCP.toString(),
-        longestRunTime: stats.longestRunTime.toString(),
-        currentStreak: stats.currentStreak.toString(),
-        bestStreak: stats.bestStreak.toString()
+        totalRuns: stats[0].toString(),
+        completedRuns: stats[1].toString(),
+        totalCPEarned: stats[2].toString(),
+        totalDBPEarned: stats[3].toString(),
+        bestRunCP: stats[4].toString(),
+        longestRunTime: stats[5].toString(),
+        currentStreak: stats[6].toString(),
+        bestStreak: stats[7].toString()
       };
     } catch (error) {
-      console.error('❌ Error fetching player stats:', error);
+      console.error('❌ Error fetching player stats from contract:', error);
       return null;
     }
   },
 
   async getCurrentRun(playerAddress) {
     if (!hodlManager) return null;
-
+    
     try {
       const run = await hodlManager.getCurrentRun(playerAddress);
       return {
-        player: run.player,
-        startTime: run.startTime.toString(),
-        endTime: run.endTime.toString(),
-        cpEarned: run.cpEarned.toString(),
-        dbpMinted: ethers.formatEther(run.dbpMinted),
-        status: run.status,
-        bonusThrowUsed: run.bonusThrowUsed,
-        boostsUsed: run.boostsUsed.map(id => id.toString()),
-        seed: run.seed
+        player: run[0],
+        startTime: run[1].toString(),
+        endTime: run[2].toString(),
+        cpEarned: run[3].toString(),
+        dbpMinted: run[4].toString(),
+        status: run[5],
+        bonusThrowUsed: run[6],
+        boostsUsed: run[7].map(b => b.toString()),
+        seed: run[8]
       };
     } catch (error) {
       console.error('❌ Error fetching current run:', error);
@@ -290,31 +531,31 @@ const contracts = {
   },
 
   async getBoostBalance(playerAddress, boostId) {
-    if (!boostNFT) return null;
-
+    if (!boostNFT) return '0';
+    
     try {
       const balance = await boostNFT.balanceOf(playerAddress, boostId);
       return balance.toString();
     } catch (error) {
       console.error('❌ Error fetching boost balance:', error);
-      return null;
+      return '0';
     }
   },
 
   async getGlobalStats() {
     if (!hodlManager) return null;
-
+    
     try {
       const [totalRuns, totalCP, totalDBP] = await Promise.all([
         hodlManager.totalRuns(),
         hodlManager.totalCPGenerated(),
         hodlManager.totalDBPMinted()
       ]);
-
+      
       return {
         totalRuns: totalRuns.toString(),
         totalCPGenerated: totalCP.toString(),
-        totalDBPMinted: ethers.formatEther(totalDBP)
+        totalDBPMinted: totalDBP.toString()
       };
     } catch (error) {
       console.error('❌ Error fetching global stats:', error);
@@ -323,13 +564,13 @@ const contracts = {
   }
 };
 
-// Initialize on module load
-initializeContracts();
+// Helper function for level calculation
+function calculateLevel(xp) {
+  // Simple level calculation: every 100 XP = 1 level
+  return Math.floor(xp / 100) + 1;
+}
 
-module.exports = {
-  supabase,
-  db,
-  contracts,
-  provider,
-  initializeContracts
-};
+// Initialize contracts on module load
+const contractsInitialized = initializeContracts();
+
+module.exports = { db, contracts, supabaseInitialized, contractsInitialized };

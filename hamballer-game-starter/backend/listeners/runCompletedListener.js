@@ -2,6 +2,8 @@ const { ethers } = require('ethers');
 const { handleRunCompletion } = require('../controllers/runLogger');
 const { retryQueue } = require('../retryQueue');
 const { achievementsService } = require('../services/achievementsService');
+const { db } = require('../config/database');
+const { config, validation } = require('../config/environment');
 
 // Contract ABIs
 const HODL_MANAGER_ABI = [
@@ -27,13 +29,13 @@ let isMinting = false;
  */
 async function initializeContracts() {
   try {
-    const rpcUrl = process.env.ABSTRACT_RPC_URL;
-    const hodlManagerAddress = process.env.HODL_MANAGER_ADDRESS;
-    const xpBadgeAddress = process.env.XPBADGE_ADDRESS;
+    const rpcUrl = process.env.ABSTRACT_RPC_URL || config.blockchain.rpcUrl;
+    const hodlManagerAddress = process.env.HODL_MANAGER_ADDRESS || config.contracts.hodlManager;
+    const xpBadgeAddress = process.env.XPBADGE_ADDRESS || config.contracts.xpBadge;
     const privateKey = process.env.XPBADGE_MINTER_PRIVATE_KEY;
 
     if (!rpcUrl) {
-      console.warn('⚠️ ABSTRACT_RPC_URL not configured - RunCompleted listener disabled');
+      console.warn('⚠️ RPC URL not configured - RunCompleted listener disabled');
       return false;
     }
 
@@ -86,158 +88,158 @@ async function initializeContracts() {
  */
 async function generateBadgeTokenId(xpEarned, season) {
   // Badge tiers based on XP earned in a single run
-  if (xpEarned >= 100) return 4; // Legendary Badge
-  if (xpEarned >= 75) return 3;  // Epic Badge
-  if (xpEarned >= 50) return 2;  // Rare Badge
-  if (xpEarned >= 25) return 1;  // Common Badge
-  return 0; // Participation Badge
+  const badgeTiers = [
+    { minXp: 0, maxXp: 99, tokenId: 1, name: 'Novice HODLer' },
+    { minXp: 100, maxXp: 499, tokenId: 2, name: 'Experienced Trader' },
+    { minXp: 500, maxXp: 999, tokenId: 3, name: 'Master Strategist' },
+    { minXp: 1000, maxXp: 2499, tokenId: 4, name: 'Legendary HODLer' },
+    { minXp: 2500, maxXp: 999999, tokenId: 5, name: 'Supreme Champion' }
+  ];
+
+  const tier = badgeTiers.find(t => xpEarned >= t.minXp && xpEarned <= t.maxXp);
+  if (!tier) {
+    throw new Error(`No badge tier found for XP: ${xpEarned}`);
+  }
+
+  // Generate unique tokenId: (season * 1000) + tier.tokenId
+  const tokenId = (season * 1000) + tier.tokenId;
+  
+  console.log(`🎖️ Generated badge tokenId: ${tokenId} (${tier.name}) for ${xpEarned} XP in season ${season}`);
+  
+  return {
+    tokenId,
+    tier: tier.name,
+    xpRequired: tier.minXp
+  };
 }
 
 /**
- * Mint XPBadge NFT for player
+ * Mint XPBadge for a player
  */
 async function mintXPBadge(playerAddress, xpEarned, season) {
   try {
-    console.log(`🎫 Attempting to mint XPBadge for ${playerAddress} (${xpEarned} XP, Season ${season})`);
-
-    const tokenId = await generateBadgeTokenId(xpEarned, season);
+    console.log(`🏆 Attempting to mint XPBadge for ${playerAddress} with ${xpEarned} XP in season ${season}`);
     
-    // Check gas price and network status
-    const gasPrice = await provider.getFeeData();
-    console.log(`⛽ Current gas price: ${ethers.formatUnits(gasPrice.gasPrice, 'gwei')} gwei`);
-
-    // Estimate gas for the transaction
-    const gasEstimate = await xpBadgeContract.mintBadge.estimateGas(
-      playerAddress,
-      tokenId,
-      xpEarned,
-      season
-    );
-
-    console.log(`📊 Gas estimate: ${gasEstimate.toString()}`);
-
-    // Execute the minting transaction
-    const tx = await xpBadgeContract.mintBadge(
+    // Generate badge tokenId
+    const { tokenId, tier, xpRequired } = await generateBadgeTokenId(xpEarned, season);
+    
+    // Check if player already has this badge
+    const existingBadge = await db.getPlayerBadge(playerAddress, tokenId);
+    if (existingBadge) {
+      console.log(`⚠️ Player ${playerAddress} already has badge ${tokenId} (${tier})`);
+      return { success: false, reason: 'Badge already owned' };
+    }
+    
+    // Add to minting queue
+    mintingQueue.push({
       playerAddress,
       tokenId,
       xpEarned,
       season,
-      {
-        gasLimit: gasEstimate + BigInt(50000), // Add buffer
-        gasPrice: gasPrice.gasPrice
-      }
-    );
-
-    console.log(`⏳ XPBadge mint transaction sent: ${tx.hash}`);
-
-    // Wait for confirmation
-    const receipt = await tx.wait(2); // Wait for 2 confirmations
+      tier,
+      timestamp: new Date().toISOString()
+    });
     
-    if (receipt.status === 1) {
-      console.log(`✅ XPBadge minted successfully for ${playerAddress}`);
-      console.log(`🎫 TokenId: ${tokenId}, XP: ${xpEarned}, Season: ${season}`);
-      console.log(`🧾 Transaction: ${tx.hash} (Block: ${receipt.blockNumber})`);
-      
-      return {
-        success: true,
-        tokenId,
-        txHash: tx.hash,
-        blockNumber: receipt.blockNumber,
-        gasUsed: receipt.gasUsed.toString()
-      };
-    } else {
-      throw new Error('Transaction failed');
+    console.log(`📋 Added badge minting to queue for ${playerAddress}: ${tier} (${tokenId})`);
+    
+    // Process queue if not already processing
+    if (!isMinting) {
+      await processMintingQueue();
     }
-
+    
+    return { success: true, tokenId, tier, xpRequired };
+    
   } catch (error) {
-    console.error(`❌ Failed to mint XPBadge for ${playerAddress}:`, error.message);
-    
-    // Log detailed error information
-    if (error.code) {
-      console.error(`Error code: ${error.code}`);
-    }
-    if (error.reason) {
-      console.error(`Error reason: ${error.reason}`);
-    }
-    if (error.transaction) {
-      console.error(`Failed transaction hash: ${error.transaction.hash}`);
-    }
-
-    return {
-      success: false,
-      error: error.message,
-      code: error.code,
-      reason: error.reason
-    };
+    console.error('❌ Error in mintXPBadge:', error.message);
+    return { success: false, error: error.message };
   }
 }
 
 /**
- * Process minting queue to handle multiple mints sequentially
+ * Process the minting queue
  */
 async function processMintingQueue() {
-  if (isMinting || mintingQueue.length === 0) return;
-
+  if (isMinting || mintingQueue.length === 0) {
+    return;
+  }
+  
   isMinting = true;
-  console.log(`🔄 Processing ${mintingQueue.length} XPBadge minting requests...`);
-
+  console.log(`🔄 Processing ${mintingQueue.length} badge minting requests...`);
+  
   while (mintingQueue.length > 0) {
-    const { playerAddress, xpEarned, season, timestamp } = mintingQueue.shift();
+    const mintRequest = mintingQueue.shift();
     
     try {
-      const result = await mintXPBadge(playerAddress, xpEarned, season);
+      console.log(`🏆 Minting badge ${mintRequest.tokenId} for ${mintRequest.playerAddress}...`);
       
-      // Update Supabase with tokenId if minting was successful
-      if (result.success) {
-        await updateSupabaseWithBadge(playerAddress, result.tokenId, xpEarned, season, result.txHash, timestamp);
-      }
+      // Mint badge on blockchain
+      const tx = await xpBadgeContract.mintBadge(
+        mintRequest.playerAddress,
+        mintRequest.tokenId,
+        mintRequest.xpEarned,
+        mintRequest.season
+      );
       
-      // Small delay between mints to avoid overwhelming the network
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log(`⏳ Badge minting transaction submitted: ${tx.hash}`);
+      
+      // Wait for confirmation
+      const receipt = await tx.wait();
+      console.log(`✅ Badge minted successfully! Transaction: ${receipt.transactionHash}`);
+      
+      // Update Supabase
+      await updateSupabaseWithBadge(
+        mintRequest.playerAddress,
+        mintRequest.tokenId,
+        mintRequest.xpEarned,
+        mintRequest.season,
+        receipt.transactionHash,
+        mintRequest.timestamp
+      );
       
     } catch (error) {
-      console.error('❌ Error processing mint from queue:', error);
+      console.error(`❌ Failed to mint badge for ${mintRequest.playerAddress}:`, error.message);
+      
+      // Add to retry queue for later processing
+      retryQueue.add({
+        type: 'badge_mint',
+        data: mintRequest,
+        error: error.message,
+        attempts: 0
+      });
     }
   }
-
+  
   isMinting = false;
-  console.log('✅ Minting queue processed');
+  console.log('✅ Badge minting queue processed');
 }
 
 /**
- * Update Supabase database with badge information
+ * Update Supabase with badge minting information
  */
 async function updateSupabaseWithBadge(playerAddress, tokenId, xpEarned, season, txHash, timestamp) {
   try {
-    const { db } = require('../config/database');
+    const { data, error } = await db
+      .from('player_badges')
+      .insert({
+        player_address: playerAddress,
+        badge_token_id: tokenId,
+        xp_earned: xpEarned,
+        season: season,
+        transaction_hash: txHash,
+        minted_at: timestamp,
+        status: 'minted'
+      });
     
-    if (!db) {
-      console.warn('⚠️ Database not available - skipping badge log update');
-      return;
-    }
-
-    // Update the most recent run log with badge information
-    const { error } = await db
-      .from('run_logs')
-      .update({
-        xp_badge_token_id: tokenId,
-        xp_badge_tx_hash: txHash,
-        xp_badge_minted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('player_address', playerAddress)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
     if (error) {
-      console.error('❌ Failed to update Supabase with badge info:', error);
-    } else {
-      console.log(`📝 Updated Supabase with badge tokenId ${tokenId} for ${playerAddress}`);
+      console.error('❌ Error updating Supabase with badge:', error);
+      throw error;
     }
-
+    
+    console.log(`✅ Badge ${tokenId} recorded in Supabase for ${playerAddress}`);
+    
   } catch (error) {
-    console.error('❌ Error updating Supabase with badge info:', error);
+    console.error('❌ Failed to update Supabase with badge:', error.message);
+    throw error;
   }
 }
 
@@ -245,156 +247,156 @@ async function updateSupabaseWithBadge(playerAddress, tokenId, xpEarned, season,
  * Handle RunCompleted event
  */
 async function handleRunCompletedEvent(user, xpEarned, cpEarned, dbpMinted, duration, bonusThrowUsed, boostsUsed, event) {
+  console.log('\n🏆 ===== RunCompleted Event Triggered =====');
+  console.log(`👤 Player: ${user}`);
+  console.log(`⭐ XP Earned: ${xpEarned.toString()}`);
+  console.log(`💰 DBP Earned: ${dbpMinted.toString()}`);
+  console.log(`🎮 Duration: ${duration.toString()}`);
+  console.log(`🎯 Bonus Throw Used: ${bonusThrowUsed}`);
+  console.log(`🚀 Boosts Used: ${boostsUsed.map(b => b.toString()).join(', ')}`);
+  console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
+  console.log('==========================================\n');
+  
   try {
-    console.log(`🎮 RunCompleted event for ${user}: ${xpEarned.toString()} XP, ${cpEarned.toString()} CP, ${dbpMinted.toString()} DBP`);
+    // Update XP in database
+    const result = await db.updateXP(user, xpEarned.toString(), dbpMinted.toString(), event.transactionHash);
     
-    // Process with existing XP pipeline
-    const runData = {
-      playerAddress: user,
-      cpEarned: Number(cpEarned.toString()),
-      dbpMinted: parseFloat(ethers.formatEther(dbpMinted)),
-      duration: Number(duration.toString()),
-      bonusThrowUsed,
-      boostsUsed: boostsUsed.map(b => Number(b.toString())),
-      status: 'completed',
-      blockNumber: event.blockNumber,
-      txHash: event.transactionHash,
-      timestamp: new Date().toISOString()
-    };
-
-    // Handle existing run completion logic
-    const runResult = await handleRunCompletion(runData);
-
-    // Check for achievements after run completion
-    if (achievementsService.initialized) {
-      try {
-        console.log(`🏆 Checking achievements for ${user} after run completion`);
-        await achievementsService.checkRunCompletionAchievements(user, runData);
-      } catch (error) {
-        console.error('❌ Error checking run completion achievements:', error.message);
-      }
-    }
-
-    // Queue XPBadge minting using the enhanced retry queue system
-    if (retryQueue.isInitialized) {
-      try {
-        const xpAmount = Number(xpEarned.toString());
-        
-        // Only mint badges for runs that earned XP
-        if (xpAmount > 0) {
-          const currentSeason = 1; // Default season, could be dynamic based on contract
-          
-          // Get the run ID from the result or fetch it from database
-          let runId = runResult?.runId;
-          
-          if (!runId) {
-            // Fallback: Get the most recent run for this player
-            const { db } = require('../config/database');
-            if (db) {
-              const { data: recentRun, error } = await db
-                .from('run_logs')
-                .select('id')
-                .eq('player_address', user.toLowerCase())
-                .eq('status', 'completed')
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-                
-              if (!error && recentRun) {
-                runId = recentRun.id;
-              }
-            }
-          }
-          
-          if (runId) {
-            await retryQueue.addAttempt(
-              user,
-              runId,
-              xpAmount,
-              currentSeason
-            );
-            
-            console.log(`📋 Queued XPBadge mint for ${user} (${xpAmount} XP, Season ${currentSeason})`);
-          } else {
-            console.warn(`⚠️ Could not get run ID for badge minting: ${user}`);
-          }
-        } else {
-          console.log(`ℹ️ No XPBadge mint for ${user} - no XP earned`);
-        }
-      } catch (error) {
-        console.error('❌ Error queuing XPBadge mint with retry system:', error.message);
-      }
-    } else if (xpBadgeContract && isInitialized) {
-      // Fallback to old system if retry queue not available
+    console.log('✅ XP Update Result:', {
+      success: result.success,
+      playerAddress: result.playerAddress,
+      xpEarned: result.xpEarned,
+      dbpEarned: result.dbpEarned,
+      previousXp: result.previousXp,
+      newXp: result.newXp,
+      previousLevel: result.previousLevel,
+      newLevel: result.newLevel,
+      runId: result.runId
+    });
+    
+    // Check for badge eligibility
+    if (xpBadgeContract && isInitialized) {
       try {
         const currentSeason = await xpBadgeContract.getCurrentSeason();
-        const xpAmount = Number(xpEarned.toString());
+        const badgeResult = await mintXPBadge(user, xpEarned.toString(), currentSeason.toString());
         
-        if (xpAmount > 0) {
-          mintingQueue.push({
-            playerAddress: user,
-            xpEarned: xpAmount,
-            season: Number(currentSeason.toString()),
-            timestamp: runData.timestamp
-          });
-          
-          console.log(`📋 Fallback: Queued XPBadge mint for ${user} (${xpAmount} XP, Season ${currentSeason})`);
-          processMintingQueue().catch(console.error);
+        if (badgeResult.success) {
+          console.log(`🏆 Badge minting initiated: ${badgeResult.tier} (${badgeResult.tokenId})`);
+        } else if (badgeResult.reason === 'Badge already owned') {
+          console.log('ℹ️ Player already owns this badge tier');
+        } else {
+          console.log('⚠️ Badge minting failed:', badgeResult.error);
         }
-      } catch (error) {
-        console.error('❌ Error with fallback badge minting:', error.message);
+      } catch (badgeError) {
+        console.error('❌ Error checking badge eligibility:', badgeError.message);
       }
     }
-
+    
+    // Broadcast update to connected WebSocket clients
+    broadcastXPReward(user, xpEarned.toString(), dbpMinted.toString(), event.transactionHash, result);
+    
   } catch (error) {
-    console.error('❌ Error handling RunCompleted event:', error);
+    console.error('❌ Error processing RunCompleted event:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      playerAddress: user,
+      xpEarned: xpEarned.toString(),
+      dbpEarned: dbpMinted.toString(),
+      runId: event.transactionHash
+    });
   }
 }
 
 /**
- * Main listener function
+ * Start listening for RunCompleted events
  */
 async function listenRunCompleted() {
-  console.log('🎧 Initializing RunCompleted listener...');
-  
-  isInitialized = await initializeContracts();
-  
-  if (!isInitialized) {
-    console.warn('⚠️ RunCompleted listener not fully initialized - limited functionality');
+  // Check if blockchain and contracts are configured
+  if (!validation.isBlockchainReady() || !validation.isContractsReady()) {
+    console.log('🎧 RunCompleted listener not configured - missing blockchain or contract configuration');
     return;
   }
 
-  // Set up event listener
-  hodlManagerContract.on('RunCompleted', handleRunCompletedEvent);
-  
-  // Handle listener errors
-  hodlManagerContract.on('error', (error) => {
-    console.error('❌ HODLManager contract listener error:', error);
-  });
+  try {
+    // Initialize contracts if not already done
+    if (!isInitialized) {
+      isInitialized = await initializeContracts();
+      if (!isInitialized) {
+        console.log('🎧 RunCompleted listener not initialized - contract configuration issues');
+        return;
+      }
+    }
+    
+    console.log('🎧 Starting RunCompleted event listener...');
+    console.log(`📡 Listening for events on contract: ${hodlManagerContract.address}`);
+    console.log(`🌐 RPC URL: ${provider.connection.url}`);
+    
+    hodlManagerContract.on('RunCompleted', handleRunCompletedEvent);
 
-  console.log('✅ RunCompleted listener active');
-  console.log('🎫 XPBadge minting enabled');
+    console.log('✅ RunCompleted listener active and listening for events');
+    
+    // Log listener status periodically
+    setInterval(() => {
+      console.log('🎧 RunCompleted listener status: Active and listening');
+    }, 60000); // Log every minute
+    
+  } catch (error) {
+    console.error('❌ Failed to start RunCompleted listener:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      rpcUrl: config.blockchain.rpcUrl,
+      contractAddress: config.contracts.hodlManager
+    });
+  }
 }
 
 /**
- * Graceful shutdown
+ * Broadcast XP reward to WebSocket clients
+ */
+function broadcastXPReward(playerAddress, xpEarned, dbpEarned, runId, updateResult) {
+  if (!global.wsClients) {
+    console.log('📡 No WebSocket clients available for broadcasting');
+    return;
+  }
+
+  const message = JSON.stringify({
+    type: 'xp_reward',
+    channel: 'xp',
+    data: {
+      playerAddress,
+      xpEarned,
+      dbpEarned,
+      runId,
+      updateResult,
+      timestamp: new Date().toISOString()
+    }
+  });
+
+  let sentCount = 0;
+  global.wsClients.forEach(client => {
+    if (client.readyState === 1) { // WebSocket.OPEN
+      client.send(message);
+      sentCount++;
+    }
+  });
+
+  console.log(`📡 XP reward broadcasted to ${sentCount} WebSocket clients`);
+}
+
+/**
+ * Shutdown listener
  */
 function shutdown() {
   if (hodlManagerContract) {
     hodlManagerContract.removeAllListeners();
-    console.log('🛑 RunCompleted listener stopped');
+    console.log('🛑 RunCompleted listener shutdown');
   }
 }
 
-// Handle process shutdown
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
-
-module.exports = { 
-  listenRunCompleted, 
+module.exports = {
+  listenRunCompleted,
   shutdown,
   mintXPBadge,
-  generateBadgeTokenId,
-  processMintingQueue,
-  isInitialized: () => isInitialized
+  processMintingQueue
 };

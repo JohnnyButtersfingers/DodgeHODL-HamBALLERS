@@ -3,6 +3,8 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useWebSocket } from '../services/useWebSocketService';
 import PriceTicker from './PriceTicker';
+import AudioControls from './AudioControls';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Layout = () => {
   const location = useLocation();
@@ -17,9 +19,19 @@ const Layout = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
+    <motion.div 
+      className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       {/* Header */}
-      <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-800">
+      <motion.header 
+        className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-800"
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
@@ -31,24 +43,38 @@ const Layout = () => {
 
             {/* Navigation */}
             <nav className="hidden md:flex space-x-8">
-              {navItems.map((item) => (
-                <Link
+              {navItems.map((item, index) => (
+                <motion.div
                   key={item.path}
-                  to={item.path}
-                  className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    location.pathname === item.path
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-                  }`}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
                 >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
+                  <Link
+                    to={item.path}
+                    className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                      location.pathname === item.path
+                        ? 'bg-green-500/20 text-green-400 shadow-lg shadow-green-500/20'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
+                    }`}
+                  >
+                    <motion.span
+                      animate={{ rotate: location.pathname === item.path ? [0, 10, -10, 0] : 0 }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      {item.icon}
+                    </motion.span>
+                    <span>{item.label}</span>
+                  </Link>
+                </motion.div>
               ))}
             </nav>
 
             {/* Wallet Connect & Status */}
             <div className="flex items-center space-x-4">
+              {/* Audio Controls */}
+              <AudioControls />
+
               {/* WebSocket Status */}
               <div className="flex items-center space-x-2">
                 <div
@@ -89,12 +115,27 @@ const Layout = () => {
             ))}
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Outlet />
-      </main>
+      <motion.main 
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
+      </motion.main>
 
       {/* Footer */}
       <footer className="bg-gray-900/80 backdrop-blur-sm border-t border-gray-800 mt-auto">
@@ -112,6 +153,7 @@ const Layout = () => {
                 <li>• Real-time price action</li>
                 <li>• On-chain rewards</li>
                 <li>• NFT boosts</li>
+                <li>• XP badges</li>
                 <li>• Live replays</li>
               </ul>
             </div>
@@ -132,7 +174,7 @@ const Layout = () => {
           </div>
         </div>
       </footer>
-    </div>
+    </motion.div>
   );
 };
 

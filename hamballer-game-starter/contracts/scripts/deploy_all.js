@@ -27,6 +27,13 @@ async function main() {
   await boostNFT.waitForDeployment();
   console.log("✅ Boost NFT deployed to:", await boostNFT.getAddress());
 
+  // Deploy XP Badge
+  console.log("\n🏆 Deploying XP Badge...");
+  const XPBadge = await ethers.getContractFactory("XPBadge");
+  const xpBadge = await XPBadge.deploy();
+  await xpBadge.waitForDeployment();
+  console.log("✅ XP Badge deployed to:", await xpBadge.getAddress());
+
   // Deploy HODL Manager
   console.log("\n🎯 Deploying HODL Manager...");
   const HODLManager = await ethers.getContractFactory("HODLManager");
@@ -48,6 +55,15 @@ async function main() {
   await boostNFT.grantRole(await boostNFT.MINTER_ROLE(), await hodlManager.getAddress());
   console.log("✅ Granted MINTER_ROLE to HODL Manager for NFTs");
 
+  // Display XP Badge information
+  console.log("\n🏆 XP Badge Information:");
+  const totalBadges = await xpBadge.getTotalBadges();
+  console.log("📊 Total badges created:", totalBadges.toString());
+  for (let i = 1; i <= totalBadges; i++) {
+    const badgeInfo = await xpBadge.getBadgeInfo(i);
+    console.log(`🎖️ Badge ${i}: ${badgeInfo.name} (${badgeInfo.xpRequired} XP)`);
+  }
+
   // Contract addresses summary
   console.log("\n🎮 === HamBaller.xyz Deployment Summary ===");
   console.log("Network:", (await ethers.provider.getNetwork()).name);
@@ -56,11 +72,13 @@ async function main() {
   console.log("");
   console.log("📗 DBP Token:", await dbpToken.getAddress());
   console.log("🎁 Boost NFT:", await boostNFT.getAddress());
+  console.log("🏆 XP Badge:", await xpBadge.getAddress());
   console.log("🎯 HODL Manager:", await hodlManager.getAddress());
   console.log("");
   console.log("🔗 Add these to your .env file:");
   console.log(`DBP_TOKEN_ADDRESS=${await dbpToken.getAddress()}`);
   console.log(`BOOST_NFT_ADDRESS=${await boostNFT.getAddress()}`);
+  console.log(`XP_BADGE_ADDRESS=${await xpBadge.getAddress()}`);
   console.log(`HODL_MANAGER_ADDRESS=${await hodlManager.getAddress()}`);
 
   // Export contract data to frontend
@@ -104,6 +122,16 @@ async function main() {
       console.log("✅ Boost NFT verified");
     } catch (error) {
       console.log("❌ Boost NFT verification failed:", error.message);
+    }
+    
+    try {
+      await hre.run("verify:verify", {
+        address: await xpBadge.getAddress(),
+        constructorArguments: [],
+      });
+      console.log("✅ XP Badge verified");
+    } catch (error) {
+      console.log("❌ XP Badge verification failed:", error.message);
     }
     
     try {

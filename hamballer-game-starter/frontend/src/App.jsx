@@ -23,9 +23,10 @@ import { WebSocketProvider } from './services/useWebSocketService';
 import { GameStateProvider } from './hooks/useGameState';
 import { WalletProvider } from './contexts/WalletContext';
 import { XpProvider } from './contexts/XpContext';
+import { AudioProvider } from './contexts/AudioContext';
 
 // Network configuration
-import { abstractTestnet } from './config/networks';
+import { abstractTestnet } from './config/networks.js';
 
 // Configure chains and providers
 const { chains, publicClient, webSocketPublicClient } = configureChains(
@@ -111,10 +112,11 @@ function App() {
           },
         }}
       >
-        <WebSocketProvider>
-          <WalletProvider>
-            <XpProvider>
-              <GameStateProvider>
+        <AudioProvider>
+          <WebSocketProvider>
+            <WalletProvider>
+              <XpProvider>
+                <GameStateProvider>
                 <Router>
                   <div className="min-h-screen bg-game-dark text-white">
                     <Routes>
@@ -138,6 +140,7 @@ function App() {
             </XpProvider>
           </WalletProvider>
         </WebSocketProvider>
+        </AudioProvider>
       </RainbowKitProvider>
     </WagmiConfig>
   );

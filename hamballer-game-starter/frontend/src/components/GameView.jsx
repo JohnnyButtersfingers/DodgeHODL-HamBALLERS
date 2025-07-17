@@ -10,6 +10,7 @@ import GameSummary from './GameSummary';
 import ActivitySidebar from './ActivitySidebar';
 import XpOverlay from './XpOverlay';
 import useRunEngine from '../lib/useRunEngine';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const GameView = () => {
   const { address, isConnected } = useWallet();
@@ -191,10 +192,13 @@ const GameView = () => {
                       </div>
                     )}
 
-                    {/* Game Complete Actions */}
-                    {gamePhase === 'complete' && (
-                      <div className="animate-in zoom-in duration-500 delay-300">
-                        <RunResultDisplay run={currentRun} onPlayAgain={handlePlayAgain} />
+                    {/* Run Result Display */}
+                    {gamePhase === 'complete' && currentRun && (
+                      <div className="animate-in slide-in-from-bottom duration-700 delay-300">
+                        <RunResultDisplay 
+                          run={currentRun}
+                          onPlayAgain={handlePlayAgain}
+                        />
                       </div>
                     )}
                   </div>
@@ -203,52 +207,27 @@ const GameView = () => {
             </div>
           </section>
 
-          {/* Sidebar - Responsive positioning and styling */}
+          {/* Activity Sidebar - Responsive positioning */}
           <aside className="lg:col-span-4 xl:col-span-3 order-1 lg:order-2">
-            <div className="sticky top-6">
-              <ActivitySidebar 
-                playerStats={playerStats} 
-                boosts={boosts} 
-              />
-            </div>
+            <ActivitySidebar 
+              currentRun={currentRun}
+              playerStats={playerStats}
+              boosts={boosts}
+              gamePhase={gamePhase}
+            />
           </aside>
-
         </div>
       </div>
 
-      {/* XP Overlay - Global overlay for XP feedback */}
-      <XpOverlay
-        xpGained={currentXpGained}
-        isVisible={xpOverlayVisible}
-        onAnimationComplete={() => setXpOverlayVisible(false)}
-        duration={2500}
-        position="center"
-      />
-
-      {/* Contract Error Toast */}
-      {(contractError || engine.error) && (
-        <div className="fixed top-4 right-4 z-50 max-w-md">
-          <div className="bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Transaction Failed</p>
-                <p className="text-sm opacity-90">
-                  {contractError || engine.error}
-                </p>
-              </div>
-              <button 
-                onClick={() => {
-                  setContractError(null);
-                  engine.setError?.(null);
-                }}
-                className="ml-4 text-white hover:text-gray-200"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* XP Overlay */}
+      <AnimatePresence>
+        {xpOverlayVisible && (
+          <XpOverlay 
+            xpGained={currentXpGained}
+            onClose={() => setXpOverlayVisible(false)}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 };

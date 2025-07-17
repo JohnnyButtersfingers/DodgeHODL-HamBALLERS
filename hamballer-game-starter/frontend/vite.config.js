@@ -22,9 +22,11 @@ export default defineConfig({
     }
   },
   test: {
-    globals: true,
+    threads: false,
+    isolate: true,
     environment: 'jsdom',
-    setupFiles: './test/setup.js',
-    include: ['test/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', 'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-  },
+    setupFiles: ['./test/setup.jsx'],
+    globals: true,
+    css: true,
+  }
 })

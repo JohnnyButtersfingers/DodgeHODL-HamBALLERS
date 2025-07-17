@@ -1,0 +1,12 @@
+# Abstract Testnet RPC
+ABSTRACT_RPC_URL=https://api.testnet.abs.xyz
+
+# Private key for deployment (DO NOT commit this)
+PRIVATE_KEY=1f8a1c717140281fefdf5f8234092a77722366488dd0b1628f98c80829be5cd4
+
+# Etherscan API key for contract verification (optional)
+ETHERSCAN_API_KEY=RCYJI1FWBBBAFGMJUXJEJ7I9SDI9PW474K
+
+# Gas settings
+GAS_PRICE=1000000000
+GAS_LIMIT=8000000 

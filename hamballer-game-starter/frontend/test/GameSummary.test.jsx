@@ -3,53 +3,51 @@ import { describe, it, expect } from 'vitest';
 import GameSummary from '../src/components/GameSummary';
 
 describe('GameSummary', () => {
-  it('renders the welcome message correctly', () => {
-    render(<GameSummary />);
+  it('renders setup phase correctly', () => {
+    render(<GameSummary gamePhase="setup" wsConnected={true} error={null} />);
     
-    // The text is now split with a gradient span, so we need to search for partial text
-    expect(screen.getByText('Welcome to')).toBeInTheDocument();
-    expect(screen.getByText('HamBaller.xyz')).toBeInTheDocument();
-    expect(screen.getByText('The ultimate Web3 DODGE & HODL game. Connect your wallet to start playing!')).toBeInTheDocument();
+    expect(screen.getByText('Select Your Moves')).toBeInTheDocument();
+    expect(screen.getByText('🎯')).toBeInTheDocument();
+    expect(screen.getByText('Live')).toBeInTheDocument();
   });
 
-  it('displays the basketball emoji', () => {
-    render(<GameSummary />);
+  it('renders running phase correctly', () => {
+    render(<GameSummary gamePhase="running" wsConnected={true} error={null} />);
     
-    expect(screen.getByText('🏀')).toBeInTheDocument();
+    expect(screen.getByText('Run in Progress...')).toBeInTheDocument();
+    expect(screen.getByText('🏃')).toBeInTheDocument();
   });
 
-  it('renders all game instructions', () => {
-    render(<GameSummary />);
+  it('renders decision phase correctly', () => {
+    render(<GameSummary gamePhase="decision" wsConnected={true} error={null} />);
     
-    // Check for "How to Play" section
-    expect(screen.getByText('How to Play')).toBeInTheDocument();
-    
-    // Check for instruction text content
-    expect(screen.getByText('Select your 10 moves (UP/DOWN) to navigate the slipnode')).toBeInTheDocument();
-    expect(screen.getByText('Watch your run play out in real-time')).toBeInTheDocument();
-    expect(screen.getByText('Decide to HODL or CLIMB when you reach the checkpoint')).toBeInTheDocument();
-    expect(screen.getByText('Earn DBP tokens based on your performance!')).toBeInTheDocument();
+    expect(screen.getByText('HODL or CLIMB?')).toBeInTheDocument();
+    expect(screen.getByText('💎')).toBeInTheDocument();
   });
 
-  it('has proper structure with numbered steps', () => {
-    render(<GameSummary />);
+  it('renders complete phase correctly', () => {
+    render(<GameSummary gamePhase="complete" wsConnected={true} error={null} />);
     
-    // Check for numbered steps - now they are in circles without dots
-    expect(screen.getByText('1')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getByText('Run Complete!')).toBeInTheDocument();
+    expect(screen.getByText('🏆')).toBeInTheDocument();
   });
 
-  it('applies correct CSS classes for styling', () => {
-    const { container } = render(<GameSummary />);
+  it('shows offline status when wsConnected is false', () => {
+    render(<GameSummary gamePhase="setup" wsConnected={false} error={null} />);
     
-    // Check that the main container has the correct class - now it's a main element with different classes
-    const mainContainer = container.firstChild;
-    expect(mainContainer).toHaveClass('min-h-screen', 'bg-gradient-to-br');
+    expect(screen.getByText('Offline')).toBeInTheDocument();
   });
 
-  it('renders without crashing', () => {
-    expect(() => render(<GameSummary />)).not.toThrow();
+  it('displays error message when error prop is provided', () => {
+    const errorMessage = 'Failed to start run';
+    render(<GameSummary gamePhase="setup" wsConnected={true} error={errorMessage} />);
+    
+    expect(screen.getByText(errorMessage)).toBeInTheDocument();
   });
-});
+
+  it('does not display error when error prop is null', () => {
+    render(<GameSummary gamePhase="setup" wsConnected={true} error={null} />);
+    
+    expect(screen.queryByText('Failed to start run')).not.toBeInTheDocument();
+  });
+}); 

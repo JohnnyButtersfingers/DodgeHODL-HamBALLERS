@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { getContract } from 'viem';
-import { CONTRACT_ADDRESSES, CONTRACT_ABIS } from '../config/networks';
+import { CONTRACT_ADDRESSES, CONTRACT_ABIS } from '../config/networks.js';
 
 export const useContracts = () => {
   const { address, isConnected } = useAccount();

@@ -1,26 +1,31 @@
-import React from 'react';
+import React, { useCallback } from 'react';
+import { useAudio } from '../contexts/AudioContext';
 
 const MoveSelector = ({ selectedMoves, onMovesChange, onStartRun, loading, boosts }) => {
   const moves = ['UP', 'DOWN'];
   const maxMoves = 10;
+  const { playGameSound } = useAudio();
 
-  const handleMoveClick = (move) => {
+  const handleMoveClick = useCallback((move) => {
     if (selectedMoves.length < maxMoves) {
+      playGameSound('moveSelect');
       const newMoves = [...selectedMoves, move];
       onMovesChange(newMoves);
     }
-  };
+  }, [selectedMoves.length, maxMoves, playGameSound, onMovesChange]);
 
-  const handleClearMoves = () => {
+  const handleClearMoves = useCallback(() => {
+    playGameSound('buttonClick');
     onMovesChange([]);
-  };
+  }, [playGameSound, onMovesChange]);
 
-  const handleRandomMoves = () => {
+  const handleRandomMoves = useCallback(() => {
+    playGameSound('buttonClick');
     const randomMoves = Array.from({ length: maxMoves }, () =>
       moves[Math.floor(Math.random() * moves.length)]
     );
     onMovesChange(randomMoves);
-  };
+  }, [playGameSound, maxMoves, moves, onMovesChange]);
 
   return (
     <div className="space-y-6">
@@ -94,7 +99,10 @@ const MoveSelector = ({ selectedMoves, onMovesChange, onStartRun, loading, boost
 
       {/* Start Run Button */}
       <button
-        onClick={onStartRun}
+        onClick={() => {
+          playGameSound('success');
+          onStartRun();
+        }}
         disabled={selectedMoves.length !== maxMoves || loading}
         className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 text-xl rounded-lg transition-colors"
       >

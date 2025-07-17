@@ -5,6 +5,11 @@ const morgan = require('morgan');
 const { WebSocketServer } = require('ws');
 const { createServer } = require('http');
 require('dotenv').config();
+
+// Import environment configuration
+const { config, validation, printConfigurationStatus } = require('./config/environment');
+
+// Import XPBadge and related services
 const { listenRunCompleted } = require('./listeners/runCompletedListener');
 const { retryQueue } = require('./retryQueue');
 const { eventRecovery } = require('./eventRecovery');
@@ -18,6 +23,7 @@ const dbpPriceRoutes = require('./routes/dbp-price');
 const leaderboardRoutes = require('./routes/leaderboard');
 const badgesRoutes = require('./routes/badges');
 const achievementsRoutes = require('./routes/achievements');
+const xpRoutes = require('./routes/xp');
 
 // Controllers
 const { broadcastUpdate } = require('./controllers/runLogger');
@@ -96,22 +102,20 @@ app.use(helmet({
   },
 }));
 
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://hamballer.xyz', 'https://app.hamballer.xyz']
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+app.use(cors(config.cors));
 
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health check endpoint
+// Enhanced health check endpoint with Supabase write verification and badge retry stats
 app.get('/health', async (req, res) => {
   try {
+    const { db } = require('./config/database');
+    
+    // Test Supabase write functionality
+    const supabaseWriteTest = await db.testSupabaseWrite();
+    
     // Get retry queue stats
     const queueStats = retryQueue.getStats();
     
@@ -145,24 +149,106 @@ app.get('/health', async (req, res) => {
         console.warn('⚠️ Could not fetch retry stats for health check:', dbError.message);
       }
     }
-
-    res.json({
+    
+    const healthStatus = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       version: '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      environment: config.server.environment,
       uptime: process.uptime(),
+      configuration: {
+        supabase: validation.isSupabaseReady(),
+        blockchain: validation.isBlockchainReady(),
+        contracts: validation.isContractsReady()
+      },
+      supabase: {
+        configured: validation.isSupabaseReady(),
+        writeTest: supabaseWriteTest,
+        connection: supabaseWriteTest.success ? 'working' : 'failed'
+      },
       websocket: {
         clients: wsClients.size,
         server: wss.readyState === 1 ? 'running' : 'stopped'
       },
-      badgeRetrySystem: badgeRetryStats
-    });
+      badgeRetry: badgeRetryStats,
+      system: {
+        memory: process.memoryUsage(),
+        nodeVersion: process.version,
+        platform: process.platform
+      }
+    };
+
+    // Set appropriate status code based on health
+    const statusCode = healthStatus.supabase.writeTest.success ? 200 : 503;
+    
+    res.status(statusCode).json(healthStatus);
+    
   } catch (error) {
-    console.error('❌ Health check error:', error.message);
-    res.status(500).json({
-      status: 'error',
+    console.error('❌ Health check error:', error);
+    res.status(503).json({
+      status: 'unhealthy',
       timestamp: new Date().toISOString(),
+      error: error.message,
+      configuration: {
+        supabase: validation.isSupabaseReady(),
+        blockchain: validation.isBlockchainReady(),
+        contracts: validation.isContractsReady()
+      }
+    });
+  }
+});
+
+// Configuration status endpoint
+app.get('/api/config/status', (req, res) => {
+  res.json({
+    server: {
+      port: config.server.port,
+      host: config.server.host,
+      environment: config.server.environment
+    },
+    supabase: {
+      configured: validation.isSupabaseReady(),
+      url: config.supabase.url ? 'Set' : 'Not set',
+      hasKey: !!config.supabase.anonKey,
+      hasServiceKey: !!config.supabase.serviceKey
+    },
+    blockchain: {
+      configured: validation.isBlockchainReady(),
+      rpcUrl: config.blockchain.rpcUrl
+    },
+    contracts: {
+      configured: validation.isContractsReady(),
+      dbpToken: config.contracts.dbpToken ? 'Set' : 'Not set',
+      boostNft: config.contracts.boostNft ? 'Set' : 'Not set',
+      hodlManager: config.contracts.hodlManager ? 'Set' : 'Not set'
+    }
+  });
+});
+
+// Test XP update endpoint (for manual testing)
+app.post('/api/test/xp-update', async (req, res) => {
+  try {
+    const { playerAddress, xpEarned, dbpEarned, runId } = req.body;
+    
+    if (!playerAddress || !xpEarned || !dbpEarned || !runId) {
+      return res.status(400).json({
+        error: 'Missing required fields: playerAddress, xpEarned, dbpEarned, runId'
+      });
+    }
+
+    const { db } = require('./config/database');
+    const result = await db.updateXP(playerAddress, xpEarned.toString(), dbpEarned.toString(), runId.toString());
+    
+    res.json({
+      success: true,
+      message: 'XP update test completed',
+      result
+    });
+    
+  } catch (error) {
+    console.error('❌ XP update test error:', error);
+    res.status(500).json({
+      success: false,
       error: error.message
     });
   }
@@ -175,6 +261,7 @@ app.use('/api/dbp-price', dbpPriceRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/badges', badgesRoutes);
 app.use('/api/achievements', achievementsRoutes);
+app.use('/api/xp', xpRoutes);
 
 // WebSocket broadcast utility endpoint (for testing)
 app.post('/api/broadcast', (req, res) => {
@@ -208,7 +295,7 @@ app.use((err, req, res, next) => {
   
   res.status(err.status || 500).json({
     error: {
-      message: process.env.NODE_ENV === 'production' 
+      message: config.server.environment === 'production' 
         ? 'Internal server error' 
         : err.message,
       status: err.status || 500,
@@ -279,86 +366,27 @@ async function gracefulShutdown(signal) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-const PORT = process.env.PORT || 3001;
-const HOST = process.env.HOST || '0.0.0.0';
+// Start server
+const PORT = config.server.port;
+const HOST = config.server.host;
 
 server.listen(PORT, HOST, async () => {
   console.log('🚀 HamBaller.xyz Backend Server Started');
   console.log(`📡 HTTP API: http://${HOST}:${PORT}`);
   console.log(`🔌 WebSocket: ws://${HOST}:${PORT}/socket`);
-  console.log(`🎮 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🎮 Environment: ${config.server.environment}`);
   console.log(`⚡ WebSocket clients: ${wsClients.size}`);
   
-  console.log('\n🔧 Initializing Phase 8 Systems...');
+  // Print configuration status
+  printConfigurationStatus();
   
-  // Initialize achievements service
-  try {
-    const achievementsInitialized = await achievementsService.initialize();
-    if (achievementsInitialized) {
-      console.log('✅ Achievements service initialized');
-    } else {
-      console.log('⚠️ Achievements service not initialized - limited functionality');
-    }
-  } catch (error) {
-    console.error('❌ Failed to initialize achievements service:', error.message);
+  // Initialize RunCompleted listener if blockchain is configured
+  if (validation.isBlockchainReady() && validation.isContractsReady()) {
+    const { listenRunCompleted } = require('./listeners/runCompletedListener');
+    listenRunCompleted();
+  } else {
+    console.log('🎧 RunCompleted listener not configured - missing blockchain or contract configuration');
   }
-  
-  // Initialize XPVerifier service
-  try {
-    const xpVerifierInitialized = await xpVerifierService.initialize();
-    if (xpVerifierInitialized) {
-      console.log('✅ XPVerifier service initialized');
-    } else {
-      console.log('⚠️ XPVerifier service not initialized - ZK-proof verification disabled');
-    }
-  } catch (error) {
-    console.error('❌ Failed to initialize XPVerifier service:', error.message);
-  }
-  
-  // Initialize retry queue system
-  try {
-    const retryQueueInitialized = await retryQueue.initialize();
-    if (retryQueueInitialized) {
-      console.log('✅ Badge retry queue system initialized');
-    } else {
-      console.log('⚠️ Badge retry queue system not initialized - limited functionality');
-    }
-  } catch (error) {
-    console.error('❌ Failed to initialize retry queue:', error.message);
-  }
-  
-  // Initialize event recovery system
-  try {
-    const eventRecoveryInitialized = await eventRecovery.initialize();
-    if (eventRecoveryInitialized) {
-      console.log('✅ Event recovery system initialized');
-      
-      // Perform missed event recovery on startup
-      console.log('🔍 Starting missed event recovery...');
-      await eventRecovery.recoverMissedEvents();
-    } else {
-      console.log('⚠️ Event recovery system not initialized');
-    }
-  } catch (error) {
-    console.error('❌ Failed to initialize event recovery:', error.message);
-  }
-  
-  // Periodic cleanup of expired ZK-proof claims
-  if (xpVerifierService.initialized) {
-    setInterval(async () => {
-      try {
-        await xpVerifierService.cleanupExpiredClaims();
-      } catch (error) {
-        console.error('❌ Error cleaning up expired claims:', error.message);
-      }
-    }, 60 * 60 * 1000); // Every hour
-  }
-  
-  // Initialize run completed listener
-  console.log('🎧 Starting RunCompleted listener...');
-  listenRunCompleted();
-  
-  console.log('\n✅ All systems initialized');
 });
 
 module.exports = { app, server, wss };

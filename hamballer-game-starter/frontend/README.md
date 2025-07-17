@@ -201,6 +201,120 @@ npm run preview
 # Deploy to your preferred hosting platform
 ```
 
+## 🧪 **Testing**
+
+### Test Setup
+The project uses Vitest with React Testing Library for comprehensive component testing.
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Run tests with coverage
+npm test -- --coverage
+
+# Run specific test file
+npm test -- GameSummary.test.jsx
+```
+
+### Test Configuration
+- **Vitest**: Fast unit testing framework
+- **React Testing Library**: Component testing utilities
+- **Jest DOM**: Custom DOM element matchers
+- **JS DOM**: Browser environment simulation
+
+### Test Coverage
+- **Component Testing**: All modular components tested
+- **Accessibility Testing**: ARIA attributes and screen reader support
+- **Performance Testing**: Memoization and optimization validation
+- **Integration Testing**: Component interaction testing
+
+### Writing Tests
+```javascript
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import MyComponent from '../src/components/MyComponent';
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent />);
+    expect(screen.getByText('Hello')).toBeInTheDocument();
+  });
+});
+```
+
+## 🔧 **Offline Development**
+
+### Using Local pnpm Store
+For development in network-restricted environments:
+
+```bash
+# Setup offline development (from project root)
+./scripts/setup-offline.sh
+
+# Install dependencies from local store
+pnpm install --offline
+
+# Or use npm with local cache
+npm install --cache .npm-cache
+```
+
+### Environment Configuration
+Copy environment files in each package:
+```bash
+# Frontend
+cp .env.example .env
+
+# Backend (from backend directory)
+cp .env.example .env
+
+# Contracts (from contracts directory)
+cp .env.example .env
+```
+
+### Troubleshooting
+
+#### Common Issues
+1. **Test Failures**: Ensure all dependencies are installed
+   ```bash
+   npm install
+   npm test
+   ```
+
+2. **Build Errors**: Check environment variables
+   ```bash
+   # Verify .env file exists
+   ls -la .env
+   
+   # Check for missing variables
+   npm run build
+   ```
+
+3. **WebSocket Connection**: Verify backend is running
+   ```bash
+   # Check backend health
+   curl http://localhost:3001/health
+   ```
+
+4. **Wallet Connection**: Ensure Abstract testnet is configured
+   ```bash
+   # Check network configuration
+   cat src/config/networks.js
+   ```
+
+#### Performance Issues
+- **Slow Builds**: Use Vite's dev server for faster development
+- **Memory Issues**: Restart dev server periodically
+- **Hot Reload**: Ensure file watching is working correctly
+
+#### Network Issues
+- **Offline Development**: Use local pnpm store
+- **Proxy Issues**: Configure corporate proxy settings
+- **Firewall**: Ensure ports 5173 and 3001 are open
+
 ## 🎯 **Next Steps**
 
 The frontend is fully integrated and ready for:

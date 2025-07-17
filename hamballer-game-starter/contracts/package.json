@@ -9,16 +9,23 @@
     "deploy:local": "hardhat run scripts/deploy_all.js --network localhost",
     "deploy:abstract": "hardhat run scripts/deploy_all.js --network abstract",
     "deploy:production": "hardhat run scripts/deploy_production.js --network abstract",
+    "deploy:xp-badge": "hardhat run scripts/deploy_xp_badge.js --network abstract",
     "verify": "hardhat verify --network abstract",
     "node": "hardhat node"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "@openzeppelin/contracts": "^5.0.0",
-    "hardhat": "^2.19.0",
-    "ethers": "^6.8.0"
+    "@openzeppelin/contracts": "^5.3.0",
+    "ethers": "^6.8.0",
+    "hardhat": "^2.19.0"
   },
-  "keywords": ["web3", "game", "nft", "erc20", "hardhat"],
+  "keywords": [
+    "web3",
+    "game",
+    "nft",
+    "erc20",
+    "hardhat"
+  ],
   "author": "HamBaller Team",
   "license": "MIT"
 }
