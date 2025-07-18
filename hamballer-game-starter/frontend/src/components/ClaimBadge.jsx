@@ -577,17 +577,16 @@ const ClaimBadge = () => {
                         className="mobile-button-sm bg-red-600/30 text-red-300 rounded text-sm cursor-help pointer-events-none"
                         title="Retry limit reached. Contact support or refresh your run."
                       >
-                          Max Retries
-                        </div>
-                      )}
-                      
-                      <button
-                        onClick={() => abandonBadge(badge.id)}
-                        className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                      >
-                        {isUnclaimable ? 'Dismiss' : 'Abandon'}
-                      </button>
-                    </div>
+                        Max Retries
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={() => abandonBadge(badge.id)}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                    >
+                      {isUnclaimable ? 'Dismiss' : 'Abandon'}
+                    </button>
                   </div>
                   
                   <div className={`rounded p-3 ${isUnclaimable ? 'bg-red-900/50' : 'bg-red-900/30'}`}>
