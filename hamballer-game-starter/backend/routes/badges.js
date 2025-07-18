@@ -716,6 +716,158 @@ function calculateEstimatedXP(runData) {
 }
 
 /**
+ * GET /api/badges/check/:wallet - Check and trigger badge minting for missing badges
+ * This route is called from the /claim page to check for any missing badges
+ */
+router.get('/check/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+    
+    // Validate wallet address format
+    if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+      return res.status(400).json({
+        error: 'Invalid wallet address format',
+        code: 'INVALID_WALLET_ADDRESS'
+      });
+    }
+
+    // Check if database is available
+    if (!db) {
+      return res.status(503).json({
+        error: 'Database not available',
+        code: 'DATABASE_UNAVAILABLE'
+      });
+    }
+
+    // Find runs that earned XP but don't have badges
+    const { data: missingBadgeRuns, error } = await db
+      .from('run_logs')
+      .select(`
+        id,
+        run_id,
+        xp_earned,
+        player_address,
+        created_at
+      `)
+      .eq('player_address', wallet.toLowerCase())
+      .eq('status', 'completed')
+      .gt('xp_earned', 0)
+      .is('xp_badge_minted_at', null);
+
+    if (error) {
+      throw error;
+    }
+
+    const missingCount = missingBadgeRuns?.length || 0;
+    
+    // TODO: In a real implementation, trigger badge minting process here
+    // For now, just return the status
+    
+    res.json({
+      success: true,
+      wallet: wallet.toLowerCase(),
+      missingBadges: missingCount,
+      runsChecked: missingBadgeRuns?.length || 0,
+      message: missingCount > 0 
+        ? `Found ${missingCount} badges that need to be minted`
+        : 'All eligible badges have been minted',
+      // TODO: Add actual minting trigger results
+      mintingTriggered: false,
+      note: 'Badge minting will be handled by background processes'
+    });
+
+  } catch (error) {
+    console.error('Error checking missing badges:', error);
+    res.status(500).json({
+      error: 'Failed to check missing badges',
+      code: 'BADGE_CHECK_FAILED',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/badges/claimable/:wallet - Get claimable badges for a specific wallet
+ */
+router.get('/claimable/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+    
+    // Validate wallet address format
+    if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+      return res.status(400).json({
+        error: 'Invalid wallet address format',
+        code: 'INVALID_WALLET_ADDRESS'
+      });
+    }
+
+    // Check if database is available
+    if (!db) {
+      return res.status(503).json({
+        error: 'Database not available',
+        code: 'DATABASE_UNAVAILABLE'
+      });
+    }
+
+    // Get runs that earned XP but don't have badges minted yet
+    const { data: claimableRuns, error } = await db
+      .from('run_logs')
+      .select(`
+        id,
+        run_id,
+        xp_earned,
+        xp_badge_token_id,
+        created_at,
+        status,
+        xp_badge_minted_at,
+        xp_badge_tx_hash
+      `)
+      .eq('player_address', wallet.toLowerCase())
+      .eq('status', 'completed')
+      .gt('xp_earned', 0)
+      .is('xp_badge_minted_at', null); // Not yet minted
+
+    if (error) {
+      throw error;
+    }
+
+    // Transform to claimable format
+    const claimable = (claimableRuns || []).map(run => ({
+      runId: run.run_id,
+      xpEarned: run.xp_earned,
+      tokenId: determineTokenId(run.xp_earned),
+      earnedAt: run.created_at,
+      status: 'claimable'
+    }));
+
+    res.json({
+      success: true,
+      claimable,
+      count: claimable.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching claimable badges:', error);
+    res.status(500).json({
+      error: 'Failed to fetch claimable badges',
+      code: 'FETCH_CLAIMABLE_FAILED',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Helper function to determine token ID based on XP earned
+ */
+function determineTokenId(xpEarned) {
+  if (xpEarned >= 100) return 4; // Legendary
+  if (xpEarned >= 75) return 3;  // Epic
+  if (xpEarned >= 50) return 2;  // Rare
+  if (xpEarned >= 25) return 1;  // Common
+  return 0; // Participation
+}
+
+/**
  * Helper function to get unique badge holders count
  */
 async function getUniqueHoldersCount() {
