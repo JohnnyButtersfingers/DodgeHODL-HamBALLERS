@@ -558,6 +558,439 @@ router.get('/pending', async (req, res) => {
 });
 
 /**
+ * GET /api/badges/claimable/:wallet - Get claimable badges for a specific wallet
+ * This endpoint returns badges that are ready to be claimed, including:
+ * - Unclaimed badges from completed runs
+ * - Failed badges that can be retried
+ * - Badges pending in the retry queue
+ */
+router.get('/claimable/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+    
+    // Validate wallet address format
+    if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+      return res.status(400).json({
+        error: 'Invalid wallet address format',
+        code: 'INVALID_WALLET_ADDRESS'
+      });
+    }
+
+    // Check if database is available
+    if (!db) {
+      // Return mock data if database is not available
+      return res.json({
+        success: true,
+        wallet: wallet.toLowerCase(),
+        badges: [
+          {
+            id: `mock-${wallet}-1`,
+            tokenId: 2,
+            xpEarned: 65,
+            season: 1,
+            runId: 'run-mock-1',
+            minted: false,
+            status: 'claimable',
+            createdAt: new Date(Date.now() - 3600000).toISOString()
+          },
+          {
+            id: `mock-${wallet}-2`,
+            tokenId: 1,
+            xpEarned: 35,
+            season: 1,
+            runId: 'run-mock-2',
+            minted: false,
+            status: 'failed',
+            failureReason: 'Gas estimation failed',
+            retryCount: 2,
+            createdAt: new Date(Date.now() - 86400000).toISOString()
+          }
+        ],
+        totalClaimable: 2,
+        totalPending: 0,
+        totalFailed: 1
+      });
+    }
+
+    const walletLower = wallet.toLowerCase();
+
+    // Get unclaimed badges from completed runs
+    const { data: unclaimedRuns, error: unclaimedError } = await db
+      .from('run_logs')
+      .select(`
+        id,
+        cp_earned,
+        dbp_minted,
+        duration,
+        start_time,
+        end_time,
+        created_at,
+        xp_badge_token_id,
+        xp_badge_tx_hash,
+        xp_badge_minted_at
+      `)
+      .eq('player_address', walletLower)
+      .eq('status', 'completed')
+      .is('xp_badge_token_id', null)
+      .gte('cp_earned', 1) // Only runs that earned XP
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (unclaimedError) {
+      throw unclaimedError;
+    }
+
+    // Get failed badge attempts that can be retried
+    const { data: failedAttempts, error: failedError } = await db
+      .from('badge_claim_attempts')
+      .select(`
+        id,
+        run_id,
+        xp_earned,
+        season,
+        token_id,
+        status,
+        error_message,
+        retry_count,
+        last_retry_at,
+        created_at,
+        updated_at
+      `)
+      .eq('player_address', walletLower)
+      .eq('status', 'failed')
+      .lt('retry_count', 5) // Only attempts that haven't exceeded max retries
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (failedError && failedError.code !== 'PGRST116') {
+      throw failedError;
+    }
+
+    // Get pending badge attempts from retry queue
+    const { data: pendingAttempts, error: pendingError } = await db
+      .from('badge_claim_attempts')
+      .select(`
+        id,
+        run_id,
+        xp_earned,
+        season,
+        token_id,
+        status,
+        retry_count,
+        last_retry_at,
+        created_at
+      `)
+      .eq('player_address', walletLower)
+      .in('status', ['pending', 'minting'])
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (pendingError && pendingError.code !== 'PGRST116') {
+      throw pendingError;
+    }
+
+    // Calculate XP and token ID for unclaimed runs
+    const calculateTokenId = (xpEarned) => {
+      if (xpEarned >= 100) return 4; // Legendary
+      if (xpEarned >= 75) return 3;  // Epic
+      if (xpEarned >= 50) return 2;  // Rare
+      if (xpEarned >= 25) return 1;  // Common
+      return 0; // Participation
+    };
+
+    // Transform unclaimed runs into badge format
+    const unclaimedBadges = unclaimedRuns.map(run => {
+      const xpEarned = calculateEstimatedXP({
+        cpEarned: run.cp_earned,
+        duration: run.duration,
+        bonusThrowUsed: false,
+        boostsUsed: []
+      });
+
+      return {
+        id: run.id,
+        runId: run.id,
+        tokenId: calculateTokenId(xpEarned),
+        xpEarned,
+        season: 1, // Current season
+        minted: false,
+        status: 'claimable',
+        source: 'run_logs',
+        cpEarned: run.cp_earned,
+        duration: run.duration,
+        createdAt: run.created_at
+      };
+    });
+
+    // Transform failed attempts into badge format
+    const failedBadges = (failedAttempts || []).map(attempt => ({
+      id: attempt.id,
+      runId: attempt.run_id,
+      tokenId: attempt.token_id,
+      xpEarned: attempt.xp_earned,
+      season: attempt.season,
+      minted: false,
+      status: 'failed',
+      source: 'badge_attempts',
+      failureReason: attempt.error_message,
+      retryCount: attempt.retry_count,
+      lastRetryAt: attempt.last_retry_at,
+      createdAt: attempt.created_at
+    }));
+
+    // Transform pending attempts into badge format
+    const pendingBadges = (pendingAttempts || []).map(attempt => ({
+      id: attempt.id,
+      runId: attempt.run_id,
+      tokenId: attempt.token_id,
+      xpEarned: attempt.xp_earned,
+      season: attempt.season,
+      minted: false,
+      status: attempt.status,
+      source: 'badge_attempts',
+      retryCount: attempt.retry_count,
+      lastRetryAt: attempt.last_retry_at,
+      createdAt: attempt.created_at
+    }));
+
+    // Combine all badges and remove duplicates
+    const allBadges = [...unclaimedBadges, ...failedBadges, ...pendingBadges];
+    const uniqueBadges = allBadges.reduce((acc, badge) => {
+      const key = badge.runId || badge.id;
+      if (!acc.has(key) || badge.source === 'badge_attempts') {
+        acc.set(key, badge);
+      }
+      return acc;
+    }, new Map());
+
+    const badges = Array.from(uniqueBadges.values());
+
+    // Calculate statistics
+    const stats = {
+      totalClaimable: badges.filter(b => b.status === 'claimable').length,
+      totalPending: badges.filter(b => b.status === 'pending' || b.status === 'minting').length,
+      totalFailed: badges.filter(b => b.status === 'failed').length,
+      byTier: badges.reduce((acc, badge) => {
+        const tierName = getBadgeTierName(badge.tokenId);
+        acc[tierName] = (acc[tierName] || 0) + 1;
+        return acc;
+      }, {})
+    };
+
+    res.json({
+      success: true,
+      wallet: walletLower,
+      badges: badges.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+      ...stats,
+      generatedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching claimable badges:', error);
+    res.status(500).json({
+      error: 'Failed to fetch claimable badges',
+      code: 'CLAIMABLE_FETCH_ERROR',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/badges/claim - Claim a badge
+ * This endpoint handles the badge claiming process with retry support
+ */
+router.post('/claim', async (req, res) => {
+  try {
+    const { 
+      playerAddress, 
+      badgeId,
+      tokenId, 
+      xpEarned, 
+      season, 
+      runId,
+      verificationData 
+    } = req.body;
+
+    // Validate input
+    if (!playerAddress || !/^0x[a-fA-F0-9]{40}$/.test(playerAddress)) {
+      return res.status(400).json({
+        error: 'Invalid player address format',
+        code: 'INVALID_PLAYER_ADDRESS'
+      });
+    }
+
+    if (!badgeId || !runId) {
+      return res.status(400).json({
+        error: 'Badge ID and Run ID are required',
+        code: 'MISSING_REQUIRED_FIELDS'
+      });
+    }
+
+    if (typeof xpEarned !== 'number' || xpEarned < 1) {
+      return res.status(400).json({
+        error: 'Invalid XP amount',
+        code: 'INVALID_XP_AMOUNT'
+      });
+    }
+
+    // Check if database is available
+    if (!db) {
+      // Mock successful claim for development
+      return res.json({
+        success: true,
+        txHash: `0x${Math.random().toString(16).substr(2, 64)}`,
+        tokenId,
+        message: 'Badge claimed successfully (mock)'
+      });
+    }
+
+    // Check if badge was already claimed
+    const { data: existingClaim, error: checkError } = await db
+      .from('badge_claim_attempts')
+      .select('id, status')
+      .eq('player_address', playerAddress.toLowerCase())
+      .eq('run_id', runId)
+      .eq('status', 'completed')
+      .single();
+
+    if (existingClaim) {
+      return res.status(400).json({
+        error: 'Badge already claimed for this run',
+        code: 'BADGE_ALREADY_CLAIMED'
+      });
+    }
+
+    // Create or update claim attempt
+    const { data: claimAttempt, error: claimError } = await db
+      .from('badge_claim_attempts')
+      .upsert({
+        player_address: playerAddress.toLowerCase(),
+        run_id: runId,
+        badge_id: badgeId,
+        xp_earned: xpEarned,
+        season: season || 1,
+        token_id: tokenId,
+        status: 'pending',
+        verification_data: verificationData,
+        retry_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'player_address,run_id',
+        returning: true
+      })
+      .select()
+      .single();
+
+    if (claimError) {
+      throw claimError;
+    }
+
+    // Attempt to mint the badge
+    try {
+      const { mintXPBadge, isInitialized } = require('../listeners/runCompletedListener');
+      
+      if (!isInitialized()) {
+        // Add to retry queue if minting system not ready
+        const { retryQueue } = require('../retryQueue');
+        await retryQueue.addBadgeMintRetry({
+          playerAddress: playerAddress.toLowerCase(),
+          xpEarned,
+          season: season || 1,
+          runId,
+          attemptId: claimAttempt.id
+        });
+
+        return res.json({
+          success: true,
+          status: 'queued',
+          message: 'Badge claim queued for processing',
+          attemptId: claimAttempt.id
+        });
+      }
+
+      // Perform the mint
+      const mintResult = await mintXPBadge(playerAddress, xpEarned, season || 1);
+
+      if (mintResult.success) {
+        // Update claim attempt status
+        await db
+          .from('badge_claim_attempts')
+          .update({
+            status: 'completed',
+            tx_hash: mintResult.txHash,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', claimAttempt.id);
+
+        // Update run log with badge info
+        await db
+          .from('run_logs')
+          .update({
+            xp_badge_token_id: tokenId,
+            xp_badge_tx_hash: mintResult.txHash,
+            xp_badge_minted_at: new Date().toISOString()
+          })
+          .eq('id', runId);
+
+        res.json({
+          success: true,
+          txHash: mintResult.txHash,
+          tokenId,
+          blockNumber: mintResult.blockNumber,
+          message: 'Badge claimed successfully'
+        });
+      } else {
+        throw new Error(mintResult.error || 'Minting failed');
+      }
+
+    } catch (mintError) {
+      console.error('❌ Badge minting failed:', mintError);
+      
+      // Update claim attempt with error
+      await db
+        .from('badge_claim_attempts')
+        .update({
+          status: 'failed',
+          error_message: mintError.message,
+          retry_count: db.raw('retry_count + 1'),
+          last_retry_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', claimAttempt.id);
+
+      // Add to retry queue
+      const { retryQueue } = require('../retryQueue');
+      await retryQueue.addBadgeMintRetry({
+        playerAddress: playerAddress.toLowerCase(),
+        xpEarned,
+        season: season || 1,
+        runId,
+        attemptId: claimAttempt.id,
+        error: mintError.message
+      });
+
+      res.status(500).json({
+        success: false,
+        error: 'Badge minting failed',
+        code: 'MINTING_FAILED',
+        details: mintError.message,
+        attemptId: claimAttempt.id,
+        retryQueued: true
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Error processing badge claim:', error);
+    res.status(500).json({
+      error: 'Failed to process badge claim',
+      code: 'CLAIM_PROCESSING_ERROR',
+      details: error.message
+    });
+  }
+});
+
+/**
  * Helper function to get badge tier name from token ID
  */
 function getBadgeTierName(tokenId) {
