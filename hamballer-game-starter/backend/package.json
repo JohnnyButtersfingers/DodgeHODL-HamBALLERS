@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest --passWithNoTests",
+    "test": "npx jest --passWithNoTests",
     "test:watch": "jest --watch --passWithNoTests"
   },
   "dependencies": {
