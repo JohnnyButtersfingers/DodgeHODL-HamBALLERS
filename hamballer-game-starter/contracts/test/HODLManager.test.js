@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 
 describe("HODLManager basic", function () {
   let dbpToken, boostNFT, hodlManager;
@@ -25,6 +25,11 @@ describe("HODLManager basic", function () {
 
   it("starts and completes a run", async function () {
     await hodlManager.connect(player).startRun(ethers.id("seed"));
+    
+    // Advance time to meet MIN_RUN_DURATION requirement (30 seconds)
+    await network.provider.send("evm_increaseTime", [31]);
+    await network.provider.send("evm_mine");
+    
     const before = await dbpToken.balanceOf(player.address);
     await hodlManager.connect(player).completeRun(100, false);
     const after = await dbpToken.balanceOf(player.address);

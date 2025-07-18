@@ -22,6 +22,32 @@ Copy `.env.example` to `.env` in each package. See `scripts/setup-offline.sh` fo
 ## Testing
 Run `pnpm test` in any package or `pnpm test:all` from the repo root.
 
+**Note**: Jest only detects test files with `.test.js` or `.spec.js` extensions.
+
+## 🔧 Offline Development
+
+For environments without internet access, you can set up dependencies using a local pnpm store:
+
+### Prerequisites
+- OpenZeppelin contracts v5.3.0 (already configured)
+- pnpm v8.10.0+ (v10+ recommended for better offline support)
+
+### Setup Instructions
+```bash
+# On a machine with internet access:
+cd hamballer-game-starter
+pnpm install:all
+cp -r $(pnpm store path)/* ../scripts/pnpm-store/
+
+# Transfer project to offline environment, then:
+./scripts/setup-offline.sh
+
+# After offline setup, always rerun:
+pnpm install:all
+```
+
+**Important**: After running the offline setup script, always run `pnpm install:all` again to ensure all dependencies are properly linked.
+
 ## Contributing
 Use feature branches and open PRs. Lint before pushing. See checklist below.
 
