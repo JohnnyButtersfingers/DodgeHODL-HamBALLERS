@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title XPVerifier
@@ -53,7 +53,24 @@ contract XPVerifier is AccessControl, Pausable, ReentrancyGuard {
         uint256[][] ic;
     }
     
-    VerifyingKey public verifyingKey;
+    VerifyingKey private verifyingKey;
+    
+    // Getter functions for verifying key components
+    function getVerifyingKeyAlpha() public view returns (uint256[2] memory) {
+        return verifyingKey.alpha;
+    }
+    
+    function getVerifyingKeyBeta() public view returns (uint256[2][2] memory) {
+        return verifyingKey.beta;
+    }
+    
+    function getVerifyingKeyGamma() public view returns (uint256[2][2] memory) {
+        return verifyingKey.gamma;
+    }
+    
+    function getVerifyingKeyDelta() public view returns (uint256[2][2] memory) {
+        return verifyingKey.delta;
+    }
     
     // Season management
     uint256 public currentSeason = 1;

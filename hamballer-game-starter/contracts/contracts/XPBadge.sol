@@ -5,8 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title XPBadge
@@ -14,8 +13,6 @@ import "@openzeppelin/contracts/utils/Counters.sol";
  * @notice Mints tiered badges based on XP earned in game runs
  */
 contract XPBadge is ERC721, ERC721Enumerable, ERC721URIStorage, AccessControl, Pausable {
-    using Counters for Counters.Counter;
-    
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant URI_SETTER_ROLE = keccak256("URI_SETTER_ROLE");
@@ -28,7 +25,7 @@ contract XPBadge is ERC721, ERC721Enumerable, ERC721URIStorage, AccessControl, P
     uint8 public constant LEGENDARY_TIER = 4;     // 100+ XP
     
     // Token ID counter
-    Counters.Counter private _tokenIdCounter;
+    uint256 private _tokenIdCounter;
     
     // Mapping from token ID to badge metadata
     struct BadgeMetadata {
@@ -94,8 +91,8 @@ contract XPBadge is ERC721, ERC721Enumerable, ERC721URIStorage, AccessControl, P
         // Validate XP matches tier
         require(_isValidTierForXP(tier, xpEarned), "XP doesn't match tier");
         
-        uint256 tokenId = _tokenIdCounter.current();
-        _tokenIdCounter.increment();
+        uint256 tokenId = _tokenIdCounter;
+        _tokenIdCounter++;
         
         _safeMint(to, tokenId);
         
@@ -220,7 +217,7 @@ contract XPBadge is ERC721, ERC721Enumerable, ERC721URIStorage, AccessControl, P
      * @dev Generate token URI based on tier
      */
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
-        require(_exists(tokenId), "URI query for nonexistent token");
+        require(_ownerOf(tokenId) != address(0), "URI query for nonexistent token");
         
         string memory baseURI = _baseURI();
         BadgeMetadata memory metadata = badgeMetadata[tokenId];
@@ -257,24 +254,27 @@ contract XPBadge is ERC721, ERC721Enumerable, ERC721URIStorage, AccessControl, P
         _unpause();
     }
     
-    // Required overrides
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 tokenId,
-        uint256 batchSize
-    ) internal override(ERC721, ERC721Enumerable) whenNotPaused {
-        super._beforeTokenTransfer(from, to, tokenId, batchSize);
+    // Required overrides for OpenZeppelin 5.x
+    function _update(address to, uint256 tokenId, address auth) 
+        internal 
+        override(ERC721, ERC721Enumerable) 
+        whenNotPaused 
+        returns (address) 
+    {
+        return super._update(to, tokenId, auth);
     }
     
-    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
-        super._burn(tokenId);
+    function _increaseBalance(address account, uint128 amount) 
+        internal 
+        override(ERC721, ERC721Enumerable) 
+    {
+        super._increaseBalance(account, amount);
     }
     
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, ERC721Enumerable, AccessControl)
+        override(ERC721, ERC721Enumerable, ERC721URIStorage, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
