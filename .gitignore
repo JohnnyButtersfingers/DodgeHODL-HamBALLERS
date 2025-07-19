@@ -1,1 +1,33 @@
 *.zip
+
+# Environment variables (contains sensitive data)
+.env
+.env.local
+.env.development
+.env.production
+**/.env
+**/.env.local
+**/.env.development
+**/.env.production
+
+# OS and IDE files
+.DS_Store
+.vscode/
+*.swp
+*.swo
+*~
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+**/dist/
+**/build/
+
+# Logs
+*.log
+logs/
+**/logs/
