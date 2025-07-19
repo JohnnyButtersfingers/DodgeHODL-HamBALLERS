@@ -1,5 +1,5 @@
 import React from 'react';
-import BadgeClaimStatusV2 from './BadgeClaimStatusV2';
+import BadgeClaimStatusV3 from './BadgeClaimStatusV3';
 
 const RunResultDisplay = ({ run, onPlayAgain }) => {
   if (!run) return null;
@@ -23,9 +23,14 @@ const RunResultDisplay = ({ run, onPlayAgain }) => {
       </div>
       
       {/* Enhanced Badge Claim Status UI */}
-      <BadgeClaimStatusV2 
+      <BadgeClaimStatusV3 
         runId={run.id || run.runId} 
-        onClaimSuccess={handleBadgeClaimSuccess}
+        onClaimComplete={handleBadgeClaimSuccess}
+        badge={{
+          id: run.badgeTokenId || 1,
+          name: run.badgeName || 'Common',
+          emoji: '🥉'
+        }}
       />
       
       <button

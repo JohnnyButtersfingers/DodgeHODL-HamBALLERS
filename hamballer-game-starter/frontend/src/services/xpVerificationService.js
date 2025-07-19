@@ -1,5 +1,5 @@
 import { apiFetch } from './useApiService';
-import proofCacheService from './proofCacheService';
+import zkProofIndexedDB from './zkProofIndexedDB';
 
 class XPVerificationService {
   constructor() {
@@ -9,7 +9,7 @@ class XPVerificationService {
   }
 
   /**
-   * Generate ZK proof for XP claim with caching
+   * Generate ZK proof for XP claim with IndexedDB caching
    * @param {string} playerAddress - Player's wallet address
    * @param {number} xpClaimed - Amount of XP being claimed
    * @param {string} runId - ID of the run that earned the XP
@@ -20,11 +20,10 @@ class XPVerificationService {
       throw new Error('Missing required parameters for XP proof generation');
     }
 
-    // Check cache first
-    const cachedProof = proofCacheService.getCachedProof(playerAddress, xpClaimed, runId);
+    // Check IndexedDB cache first
+    const cachedProof = await zkProofIndexedDB.getProof(playerAddress, xpClaimed, runId);
     if (cachedProof) {
-      console.log('🎯 Using cached proof for faster retry');
-      proofCacheService.updateAttemptCount(playerAddress, xpClaimed, runId);
+      console.log('🎯 Using cached proof from IndexedDB for faster retry');
       return cachedProof;
     }
 
@@ -42,8 +41,8 @@ class XPVerificationService {
     try {
       const result = await proofPromise;
       
-      // Cache the generated proof
-      proofCacheService.cacheProof(playerAddress, xpClaimed, runId, result);
+      // Cache the generated proof in IndexedDB
+      await zkProofIndexedDB.storeProof(playerAddress, xpClaimed, runId, result);
       
       return result;
     } finally {
@@ -98,6 +97,57 @@ class XPVerificationService {
       
       throw error;
     }
+  }
+
+  /**
+   * Batch generate proofs for multiple claims
+   * @param {Array} claims - Array of {playerAddress, xpEarned, runId}
+   * @returns {Promise<Map>} Map of claim hash to proof data
+   */
+  async batchGenerateProofs(claims) {
+    // First check cache for all claims
+    const cachedProofs = await zkProofIndexedDB.getBatchProofs(claims);
+    const uncachedClaims = [];
+    const results = new Map();
+
+    // Separate cached and uncached claims
+    for (const claim of claims) {
+      const hash = zkProofIndexedDB.generateProofHash(
+        claim.playerAddress,
+        claim.xpEarned,
+        claim.runId
+      );
+      
+      if (cachedProofs.has(hash)) {
+        results.set(hash, cachedProofs.get(hash));
+      } else {
+        uncachedClaims.push(claim);
+      }
+    }
+
+    console.log(`📊 Batch proof generation: ${cachedProofs.size} cached, ${uncachedClaims.length} to generate`);
+
+    // Generate proofs for uncached claims
+    if (uncachedClaims.length > 0) {
+      const promises = uncachedClaims.map(claim => 
+        this.generateXPProof(claim.playerAddress, claim.xpEarned, claim.runId)
+          .then(proof => {
+            const hash = zkProofIndexedDB.generateProofHash(
+              claim.playerAddress,
+              claim.xpEarned,
+              claim.runId
+            );
+            results.set(hash, proof);
+          })
+          .catch(error => {
+            console.error(`Failed to generate proof for ${claim.runId}:`, error);
+          })
+      );
+
+      await Promise.all(promises);
+    }
+
+    return results;
   }
 
   /**
@@ -230,19 +280,34 @@ class XPVerificationService {
   /**
    * Clear verification queue and proof cache
    */
-  clearCache() {
+  async clearCache() {
     this.verificationQueue.clear();
-    proofCacheService.clearCache();
+    await zkProofIndexedDB.clearAll();
   }
 
   /**
    * Get cache statistics
    */
-  getCacheStats() {
+  async getCacheStats() {
+    const dbStats = await zkProofIndexedDB.getStorageStats();
     return {
       queueSize: this.verificationQueue.size,
-      cacheStats: proofCacheService.getStats()
+      indexedDB: dbStats
     };
+  }
+
+  /**
+   * Export cached proofs for backup
+   */
+  async exportCachedProofs() {
+    return await zkProofIndexedDB.exportProofs();
+  }
+
+  /**
+   * Import cached proofs from backup
+   */
+  async importCachedProofs(exportData) {
+    return await zkProofIndexedDB.importProofs(exportData);
   }
 }
 
