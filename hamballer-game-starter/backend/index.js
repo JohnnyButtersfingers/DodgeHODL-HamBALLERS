@@ -18,6 +18,7 @@ const dbpPriceRoutes = require('./routes/dbp-price');
 const leaderboardRoutes = require('./routes/leaderboard');
 const badgesRoutes = require('./routes/badges');
 const achievementsRoutes = require('./routes/achievements');
+const xpVerifierRoutes = require('./routes/xpverifier');
 
 // Controllers
 const { broadcastUpdate } = require('./controllers/runLogger');
@@ -175,6 +176,7 @@ app.use('/api/dbp-price', dbpPriceRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/badges', badgesRoutes);
 app.use('/api/achievements', achievementsRoutes);
+app.use('/api/xpverifier', xpVerifierRoutes);
 
 // WebSocket broadcast utility endpoint (for testing)
 app.post('/api/broadcast', (req, res) => {
