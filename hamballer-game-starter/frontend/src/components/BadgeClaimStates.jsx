@@ -203,6 +203,93 @@ export const BadgeClaimStates = ({
         </motion.div>
       );
 
+    case 'generating_proof':
+      return (
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className={`bg-gradient-to-br ${badge.gradient} bg-opacity-10 border-2 border-opacity-30 border-white rounded-xl p-6`}
+        >
+          <div className="text-center">
+            <motion.div
+              animate={{ 
+                rotate: [0, 180, 360],
+                scale: [1, 0.9, 1]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="inline-block mb-4"
+            >
+              <div className="relative">
+                <span className="text-6xl">{badge.emoji}</span>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full border-4 border-dashed border-white/30 animate-spin-slow" />
+                </div>
+              </div>
+            </motion.div>
+            <h3 className="text-xl font-semibold text-white mb-2">
+              Generating ZK Proof...
+            </h3>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-300">
+                Creating cryptographic proof of your {badgeStatus?.xpEarned} XP
+              </p>
+              <div className="flex justify-center items-center gap-2 text-blue-400">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-xs">Privacy preserved</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      );
+
+    case 'submitting_proof':
+      return (
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className={`bg-gradient-to-br ${badge.gradient} bg-opacity-15 border-2 border-opacity-40 border-white rounded-xl p-6`}
+        >
+          <div className="text-center">
+            <motion.div
+              animate={{ 
+                y: [0, -10, 0],
+              }}
+              transition={{ 
+                duration: 1.5, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="inline-block mb-4"
+            >
+              <span className="text-6xl">{badge.emoji}</span>
+            </motion.div>
+            <h3 className="text-xl font-semibold text-white mb-2">
+              Verifying Proof On-Chain...
+            </h3>
+            <div className="space-y-3">
+              <div className="bg-black/20 rounded-lg p-3">
+                <p className="text-xs text-gray-400 mb-1">ZK Proof</p>
+                <p className="text-sm text-green-400 font-mono truncate">
+                  {badgeStatus?.zkProof?.nullifier ? `0x${badgeStatus.zkProof.nullifier.slice(0, 8)}...${badgeStatus.zkProof.nullifier.slice(-6)}` : 'Generating...'}
+                </p>
+              </div>
+              <div className="flex justify-center items-center gap-2 text-gray-300">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Submitting to XPVerifier contract</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      );
+
     case 'claiming':
       return (
         <motion.div

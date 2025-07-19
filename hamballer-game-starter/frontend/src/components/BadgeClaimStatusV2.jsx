@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { apiFetch } from '../services/useApiService';
 import { useWallet } from '../contexts/WalletContext';
 import { useContracts } from '../hooks/useContracts';
+import xpVerificationService from '../services/xpVerificationService';
 import { BadgeClaimStates } from './BadgeClaimStates';
 import { BadgeConfetti } from './BadgeConfetti';
 import { Badge3DReveal } from './Badge3DReveal';
@@ -14,6 +15,8 @@ const CLAIM_STATES = {
   IDLE: 'idle',
   CONNECTING: 'connecting',
   VERIFYING: 'verifying',
+  GENERATING_PROOF: 'generating_proof',
+  SUBMITTING_PROOF: 'submitting_proof',
   CLAIMING: 'claiming',
   SUCCESS: 'success',
   ERROR: 'error',
@@ -78,6 +81,7 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
   const [retryCount, setRetryCount] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [show3DReveal, setShow3DReveal] = useState(false);
+  const [zkProof, setZkProof] = useState(null);
   
   const isMobile = useMediaQuery('(max-width: 768px)');
   const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
@@ -151,7 +155,69 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
     }
   }, []);
 
-  // Claim badge with retry logic
+  // Generate ZK proof for XP claim
+  const generateZKProof = useCallback(async () => {
+    if (!badgeStatus || !address) {
+      throw new Error('Missing badge status or address');
+    }
+
+    setClaimState(CLAIM_STATES.GENERATING_PROOF);
+    
+    try {
+      console.log('🔐 Generating ZK proof for XP claim...');
+      
+      const proofData = await xpVerificationService.generateXPProof(
+        address,
+        badgeStatus.xpEarned,
+        badgeStatus.runId
+      );
+      
+      setZkProof(proofData);
+      console.log('✅ ZK proof generated successfully');
+      
+      return proofData;
+    } catch (err) {
+      console.error('Failed to generate ZK proof:', err);
+      throw new Error('Failed to generate proof: ' + err.message);
+    }
+  }, [badgeStatus, address]);
+
+  // Submit ZK proof to XPVerifier contract
+  const submitZKProof = useCallback(async (proofData) => {
+    if (!contracts?.xpVerifier) {
+      throw new Error('XPVerifier contract not available');
+    }
+
+    setClaimState(CLAIM_STATES.SUBMITTING_PROOF);
+    
+    try {
+      console.log('📤 Submitting ZK proof to contract...');
+      
+      // Check if nullifier already used
+      const isUsed = await xpVerificationService.isNullifierUsed(
+        contracts,
+        proofData.nullifier
+      );
+      
+      if (isUsed) {
+        throw new Error('This XP claim has already been verified');
+      }
+      
+      const txHash = await xpVerificationService.submitXPProof(
+        contracts,
+        proofData
+      );
+      
+      console.log('✅ ZK proof verified on-chain:', txHash);
+      return txHash;
+      
+    } catch (err) {
+      console.error('Failed to submit ZK proof:', err);
+      throw new Error('Proof verification failed: ' + err.message);
+    }
+  }, [contracts]);
+
+  // Claim badge with ZK proof verification
   const handleClaim = useCallback(async () => {
     if (!badgeStatus || badgeStatus.status !== 'eligible') return;
 
@@ -159,9 +225,13 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
     setError(null);
 
     try {
-      // Simulate verification delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Step 1: Generate ZK proof
+      const proofData = await generateZKProof();
       
+      // Step 2: Submit proof to XPVerifier contract
+      const verificationTxHash = await submitZKProof(proofData);
+      
+      // Step 3: Claim badge with verified proof
       setClaimState(CLAIM_STATES.CLAIMING);
       
       const response = await apiFetch('/api/badges/claim', {
@@ -169,7 +239,12 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           playerAddress: address,
-          runId: badgeStatus.runId
+          runId: badgeStatus.runId,
+          zkProof: {
+            nullifier: proofData.nullifier,
+            commitment: proofData.commitment,
+            verificationTxHash
+          }
         })
       });
 
@@ -186,7 +261,11 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
       setTimeout(() => setShow3DReveal(true), 500);
       
       if (onClaimSuccess) {
-        onClaimSuccess(result);
+        onClaimSuccess({
+          ...result,
+          verificationTxHash,
+          zkProof: proofData
+        });
       }
       
       // Reset confetti after animation
@@ -206,7 +285,7 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
         }, delay);
       }
     }
-  }, [badgeStatus, address, retryCount, onClaimSuccess]);
+  }, [badgeStatus, address, retryCount, onClaimSuccess, generateZKProof, submitZKProof]);
 
   // Manual retry handler
   const handleRetry = useCallback(() => {
@@ -214,6 +293,7 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
     backoffRef.current.reset();
     setClaimState(CLAIM_STATES.IDLE);
     setError(null);
+    setZkProof(null);
     checkBadgeStatus().then(() => {
       if (badgeStatus?.status === 'failure' && badgeStatus.canRetry) {
         handleClaim();
@@ -249,6 +329,7 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
             error={error}
             retryCount={retryCount}
             isMobile={isMobile}
+            zkProof={zkProof}
             onConnect={handleConnect}
             onClaim={handleClaim}
             onRetry={handleRetry}
@@ -265,6 +346,8 @@ const BadgeClaimStatusV2 = ({ runId, onClaimSuccess }) => {
       {show3DReveal && claimState === CLAIM_STATES.SUCCESS && (
         <Badge3DReveal 
           badge={badge} 
+          badgeStatus={badgeStatus}
+          zkProof={zkProof}
           onClose={() => setShow3DReveal(false)}
           prefersReducedMotion={prefersReducedMotion}
         />
