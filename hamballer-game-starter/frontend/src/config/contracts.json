@@ -1,0 +1,1585 @@
+{
+  "network": {
+    "name": "hardhat",
+    "chainId": 31337
+  },
+  "timestamp": "2025-07-19T17:33:42.817Z",
+  "contracts": {
+    "XPVerifier": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "abi": [
+        {
+          "type": "constructor",
+          "stateMutability": "undefined",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "_threshold"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AccessControlBadConfirmation",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "AccessControlUnauthorizedAccount",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account"
+            },
+            {
+              "type": "bytes32",
+              "name": "neededRole"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ReentrancyGuardReentrantCall",
+          "inputs": []
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "RoleAdminChanged",
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role",
+              "indexed": true
+            },
+            {
+              "type": "bytes32",
+              "name": "previousAdminRole",
+              "indexed": true
+            },
+            {
+              "type": "bytes32",
+              "name": "newAdminRole",
+              "indexed": true
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "RoleGranted",
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "account",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "sender",
+              "indexed": true
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "RoleRevoked",
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "account",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "sender",
+              "indexed": true
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "ThresholdUpdated",
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "oldThreshold",
+              "indexed": false
+            },
+            {
+              "type": "uint256",
+              "name": "newThreshold",
+              "indexed": false
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "XPProofVerified",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "player",
+              "indexed": true
+            },
+            {
+              "type": "bytes32",
+              "name": "nullifier",
+              "indexed": true
+            },
+            {
+              "type": "uint256",
+              "name": "claimedXP",
+              "indexed": false
+            },
+            {
+              "type": "uint256",
+              "name": "threshold",
+              "indexed": false
+            },
+            {
+              "type": "bool",
+              "name": "verified",
+              "indexed": false
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "DEFAULT_ADMIN_ROLE",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "VERIFIER_ROLE",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "getRoleAdmin",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "getThreshold",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "uint256",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "getVerificationResult",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "player"
+            },
+            {
+              "type": "bytes32",
+              "name": "nullifier"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "tuple",
+              "name": "",
+              "components": [
+                {
+                  "type": "bool",
+                  "name": "verified"
+                },
+                {
+                  "type": "uint256",
+                  "name": "claimedXP"
+                },
+                {
+                  "type": "uint256",
+                  "name": "timestamp"
+                },
+                {
+                  "type": "uint256",
+                  "name": "threshold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "grantRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            },
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "grantVerifierRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "hasRole",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            },
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "isNullifierUsed",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "renounceRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            },
+            {
+              "type": "address",
+              "name": "callerConfirmation"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "revokeRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            },
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "revokeVerifierRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "supportsInterface",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes4",
+              "name": "interfaceId"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "threshold",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "uint256",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "updateThreshold",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "_newThreshold"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "verificationResults",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": ""
+            },
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": "verified"
+            },
+            {
+              "type": "uint256",
+              "name": "claimedXP"
+            },
+            {
+              "type": "uint256",
+              "name": "timestamp"
+            },
+            {
+              "type": "uint256",
+              "name": "threshold"
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "verifyXPProof",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "nullifier"
+            },
+            {
+              "type": "bytes32",
+              "name": "commitment"
+            },
+            {
+              "type": "uint256[8]",
+              "name": "proof"
+            },
+            {
+              "type": "uint256",
+              "name": "claimedXP"
+            },
+            {
+              "type": "uint256",
+              "name": "_threshold"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        }
+      ]
+    },
+    "XPBadge": {
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "abi": [
+        {
+          "type": "constructor",
+          "stateMutability": "undefined",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "string",
+              "name": "baseURI"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AccessControlBadConfirmation",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "AccessControlUnauthorizedAccount",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account"
+            },
+            {
+              "type": "bytes32",
+              "name": "neededRole"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1155InsufficientBalance",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "sender"
+            },
+            {
+              "type": "uint256",
+              "name": "balance"
+            },
+            {
+              "type": "uint256",
+              "name": "needed"
+            },
+            {
+              "type": "uint256",
+              "name": "tokenId"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1155InvalidApprover",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "approver"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1155InvalidArrayLength",
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "idsLength"
+            },
+            {
+              "type": "uint256",
+              "name": "valuesLength"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1155InvalidOperator",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "operator"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1155InvalidReceiver",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "receiver"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1155InvalidSender",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "sender"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1155MissingApprovalForAll",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "operator"
+            },
+            {
+              "type": "address",
+              "name": "owner"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ReentrancyGuardReentrantCall",
+          "inputs": []
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "ApprovalForAll",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "operator",
+              "indexed": true
+            },
+            {
+              "type": "bool",
+              "name": "approved",
+              "indexed": false
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "BadgeCreated",
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "tokenId",
+              "indexed": true
+            },
+            {
+              "type": "string",
+              "name": "name",
+              "indexed": false
+            },
+            {
+              "type": "uint256",
+              "name": "xpRequired",
+              "indexed": false
+            },
+            {
+              "type": "uint256",
+              "name": "season",
+              "indexed": false
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "BadgeMinted",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "player",
+              "indexed": true
+            },
+            {
+              "type": "uint256",
+              "name": "tokenId",
+              "indexed": true
+            },
+            {
+              "type": "uint256",
+              "name": "xpEarned",
+              "indexed": false
+            },
+            {
+              "type": "uint256",
+              "name": "season",
+              "indexed": false
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "RoleAdminChanged",
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role",
+              "indexed": true
+            },
+            {
+              "type": "bytes32",
+              "name": "previousAdminRole",
+              "indexed": true
+            },
+            {
+              "type": "bytes32",
+              "name": "newAdminRole",
+              "indexed": true
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "RoleGranted",
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "account",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "sender",
+              "indexed": true
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "RoleRevoked",
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "account",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "sender",
+              "indexed": true
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "SeasonUpdated",
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "oldSeason",
+              "indexed": false
+            },
+            {
+              "type": "uint256",
+              "name": "newSeason",
+              "indexed": false
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "TransferBatch",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "operator",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "from",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "to",
+              "indexed": true
+            },
+            {
+              "type": "uint256[]",
+              "name": "ids"
+            },
+            {
+              "type": "uint256[]",
+              "name": "values"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "TransferSingle",
+          "inputs": [
+            {
+              "type": "address",
+              "name": "operator",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "from",
+              "indexed": true
+            },
+            {
+              "type": "address",
+              "name": "to",
+              "indexed": true
+            },
+            {
+              "type": "uint256",
+              "name": "id",
+              "indexed": false
+            },
+            {
+              "type": "uint256",
+              "name": "value",
+              "indexed": false
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "anonymous": false,
+          "name": "URI",
+          "inputs": [
+            {
+              "type": "string",
+              "name": "value",
+              "indexed": false
+            },
+            {
+              "type": "uint256",
+              "name": "id",
+              "indexed": true
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "DEFAULT_ADMIN_ROLE",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "MINTER_ROLE",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "URI_SETTER_ROLE",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "badges",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": ""
+            }
+          ],
+          "outputs": [
+            {
+              "type": "uint256",
+              "name": "xpRequired"
+            },
+            {
+              "type": "uint256",
+              "name": "season"
+            },
+            {
+              "type": "string",
+              "name": "name"
+            },
+            {
+              "type": "string",
+              "name": "description"
+            },
+            {
+              "type": "bool",
+              "name": "active"
+            },
+            {
+              "type": "uint256",
+              "name": "totalMinted"
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "balanceOf",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account"
+            },
+            {
+              "type": "uint256",
+              "name": "id"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "uint256",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "balanceOfBatch",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address[]",
+              "name": "accounts"
+            },
+            {
+              "type": "uint256[]",
+              "name": "ids"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "uint256[]",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "batchMintBadges",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address[]",
+              "name": "players"
+            },
+            {
+              "type": "uint256[]",
+              "name": "tokenIds"
+            },
+            {
+              "type": "uint256[]",
+              "name": "xpAmounts"
+            },
+            {
+              "type": "uint256",
+              "name": "season"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "createBadge",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "tokenId"
+            },
+            {
+              "type": "string",
+              "name": "name"
+            },
+            {
+              "type": "string",
+              "name": "description"
+            },
+            {
+              "type": "uint256",
+              "name": "xpRequired"
+            },
+            {
+              "type": "uint256",
+              "name": "season"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "currentSeason",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "uint256",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "getBadgeInfo",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "player"
+            },
+            {
+              "type": "uint256",
+              "name": "tokenId"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "tuple",
+              "name": "badgeInfo",
+              "components": [
+                {
+                  "type": "uint256",
+                  "name": "xpRequired"
+                },
+                {
+                  "type": "uint256",
+                  "name": "season"
+                },
+                {
+                  "type": "string",
+                  "name": "name"
+                },
+                {
+                  "type": "string",
+                  "name": "description"
+                },
+                {
+                  "type": "bool",
+                  "name": "active"
+                },
+                {
+                  "type": "uint256",
+                  "name": "totalMinted"
+                }
+              ]
+            },
+            {
+              "type": "bool",
+              "name": "owned"
+            },
+            {
+              "type": "uint256",
+              "name": "balance"
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "getBadgesByPlayer",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "player"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "tuple[]",
+              "name": "",
+              "components": [
+                {
+                  "type": "uint256",
+                  "name": "tokenId"
+                },
+                {
+                  "type": "uint256",
+                  "name": "xpEarned"
+                },
+                {
+                  "type": "uint256",
+                  "name": "mintTimestamp"
+                },
+                {
+                  "type": "uint256",
+                  "name": "season"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "getPlayerBadgeCount",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "player"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "uint256",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "getRoleAdmin",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bytes32",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "grantMinterRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "grantRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            },
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "hasBadge",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": ""
+            },
+            {
+              "type": "uint256",
+              "name": ""
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "hasPlayerBadge",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "player"
+            },
+            {
+              "type": "uint256",
+              "name": "tokenId"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "hasRole",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            },
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "isApprovedForAll",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account"
+            },
+            {
+              "type": "address",
+              "name": "operator"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "mintBadge",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "to"
+            },
+            {
+              "type": "uint256",
+              "name": "tokenId"
+            },
+            {
+              "type": "uint256",
+              "name": "xp"
+            },
+            {
+              "type": "uint256",
+              "name": "season"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "playerBadges",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": ""
+            },
+            {
+              "type": "uint256",
+              "name": ""
+            }
+          ],
+          "outputs": [
+            {
+              "type": "uint256",
+              "name": "tokenId"
+            },
+            {
+              "type": "uint256",
+              "name": "xpEarned"
+            },
+            {
+              "type": "uint256",
+              "name": "mintTimestamp"
+            },
+            {
+              "type": "uint256",
+              "name": "season"
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "renounceRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            },
+            {
+              "type": "address",
+              "name": "callerConfirmation"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "revokeMinterRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "revokeRole",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes32",
+              "name": "role"
+            },
+            {
+              "type": "address",
+              "name": "account"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "safeBatchTransferFrom",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "from"
+            },
+            {
+              "type": "address",
+              "name": "to"
+            },
+            {
+              "type": "uint256[]",
+              "name": "ids"
+            },
+            {
+              "type": "uint256[]",
+              "name": "values"
+            },
+            {
+              "type": "bytes",
+              "name": "data"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "safeTransferFrom",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "from"
+            },
+            {
+              "type": "address",
+              "name": "to"
+            },
+            {
+              "type": "uint256",
+              "name": "id"
+            },
+            {
+              "type": "uint256",
+              "name": "value"
+            },
+            {
+              "type": "bytes",
+              "name": "data"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "setApprovalForAll",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "address",
+              "name": "operator"
+            },
+            {
+              "type": "bool",
+              "name": "approved"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "setURI",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "string",
+              "name": "newuri"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "supportsInterface",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "bytes4",
+              "name": "interfaceId"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "bool",
+              "name": ""
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "updateBadgeStatus",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "tokenId"
+            },
+            {
+              "type": "bool",
+              "name": "active"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "updateSeason",
+          "constant": false,
+          "payable": false,
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "newSeason"
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "uri",
+          "constant": true,
+          "stateMutability": "view",
+          "payable": false,
+          "inputs": [
+            {
+              "type": "uint256",
+              "name": "tokenId"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "string",
+              "name": ""
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
