@@ -1,4 +1,5 @@
 import { apiFetch } from './useApiService';
+import proofCacheService from './proofCacheService';
 
 class XPVerificationService {
   constructor() {
@@ -8,7 +9,7 @@ class XPVerificationService {
   }
 
   /**
-   * Generate ZK proof for XP claim
+   * Generate ZK proof for XP claim with caching
    * @param {string} playerAddress - Player's wallet address
    * @param {number} xpClaimed - Amount of XP being claimed
    * @param {string} runId - ID of the run that earned the XP
@@ -17,6 +18,14 @@ class XPVerificationService {
   async generateXPProof(playerAddress, xpClaimed, runId) {
     if (!playerAddress || !xpClaimed || !runId) {
       throw new Error('Missing required parameters for XP proof generation');
+    }
+
+    // Check cache first
+    const cachedProof = proofCacheService.getCachedProof(playerAddress, xpClaimed, runId);
+    if (cachedProof) {
+      console.log('🎯 Using cached proof for faster retry');
+      proofCacheService.updateAttemptCount(playerAddress, xpClaimed, runId);
+      return cachedProof;
     }
 
     const verificationKey = `${playerAddress}-${runId}-${xpClaimed}`;
@@ -32,6 +41,10 @@ class XPVerificationService {
 
     try {
       const result = await proofPromise;
+      
+      // Cache the generated proof
+      proofCacheService.cacheProof(playerAddress, xpClaimed, runId, result);
+      
       return result;
     } finally {
       this.verificationQueue.delete(verificationKey);
@@ -215,10 +228,21 @@ class XPVerificationService {
   }
 
   /**
-   * Clear verification queue (useful for cleanup)
+   * Clear verification queue and proof cache
    */
-  clearQueue() {
+  clearCache() {
     this.verificationQueue.clear();
+    proofCacheService.clearCache();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    return {
+      queueSize: this.verificationQueue.size,
+      cacheStats: proofCacheService.getStats()
+    };
   }
 }
 
