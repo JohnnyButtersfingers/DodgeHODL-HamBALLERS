@@ -1,0 +1,31 @@
+{
+  "name": "@hamballer/backend",
+  "version": "1.0.0",
+  "description": "Express API backend for HamBaller.xyz game hub",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "ws": "^8.14.2",
+    "@supabase/supabase-js": "^2.38.0",
+    "ethers": "^6.8.0",
+    "joi": "^17.11.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  },
+  "keywords": ["express", "api", "websocket", "supabase", "web3"],
+  "author": "HamBaller Team",
+  "license": "MIT"
+}
