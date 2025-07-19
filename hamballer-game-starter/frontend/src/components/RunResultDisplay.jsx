@@ -1,7 +1,13 @@
 import React from 'react';
+import BadgeClaimStatus from './BadgeClaimStatus';
 
 const RunResultDisplay = ({ run, onPlayAgain }) => {
   if (!run) return null;
+  
+  const handleBadgeClaimSuccess = (result) => {
+    console.log('Badge claimed successfully:', result);
+  };
+  
   return (
     <div className="text-center space-y-4">
       <div className="bg-green-500/20 border border-green-500 rounded-lg p-6">
@@ -15,6 +21,13 @@ const RunResultDisplay = ({ run, onPlayAgain }) => {
           <p className="text-blue-400 mt-2">+{run.xpGained} XP</p>
         )}
       </div>
+      
+      {/* Badge Claim Status UI */}
+      <BadgeClaimStatus 
+        runId={run.id || run.runId} 
+        onClaimSuccess={handleBadgeClaimSuccess}
+      />
+      
       <button
         onClick={onPlayAgain}
         className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg transition-colors"

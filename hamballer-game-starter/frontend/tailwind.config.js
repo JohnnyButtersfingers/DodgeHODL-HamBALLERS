@@ -12,6 +12,10 @@ export default {
         'game-accent': '#4a90e2',
         'game-dark': '#1a1a2e',
         'game-darker': '#16213e',
+        'bronze': {
+          400: '#CD7F32',
+          500: '#B87333',
+        },
       },
       fontFamily: {
         'game': ['Inter', 'system-ui', 'sans-serif'],
