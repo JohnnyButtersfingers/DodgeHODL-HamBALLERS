@@ -15,6 +15,7 @@ export default {
         'bronze': {
           400: '#CD7F32',
           500: '#B87333',
+          600: '#A0662C',
         },
       },
       fontFamily: {
@@ -25,6 +26,7 @@ export default {
         'pulse-glow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'slide-up': 'slideUp 0.3s ease-out',
         'fade-in': 'fadeIn 0.5s ease-in',
+        'spin-slow': 'spin 3s linear infinite',
       },
       keyframes: {
         slideUp: {
@@ -35,6 +37,12 @@ export default {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
         },
+      },
+      boxShadow: {
+        '3xl': '0 35px 60px -15px rgba(0, 0, 0, 0.3)',
+      },
+      perspective: {
+        '1000': '1000px',
       },
     },
   },

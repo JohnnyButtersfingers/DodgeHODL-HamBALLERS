@@ -1,5 +1,5 @@
 import React from 'react';
-import BadgeClaimStatus from './BadgeClaimStatus';
+import BadgeClaimStatusV2 from './BadgeClaimStatusV2';
 
 const RunResultDisplay = ({ run, onPlayAgain }) => {
   if (!run) return null;
@@ -22,15 +22,15 @@ const RunResultDisplay = ({ run, onPlayAgain }) => {
         )}
       </div>
       
-      {/* Badge Claim Status UI */}
-      <BadgeClaimStatus 
+      {/* Enhanced Badge Claim Status UI */}
+      <BadgeClaimStatusV2 
         runId={run.id || run.runId} 
         onClaimSuccess={handleBadgeClaimSuccess}
       />
       
       <button
         onClick={onPlayAgain}
-        className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg transition-colors"
+        className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg transition-colors min-h-[44px]"
       >
         Play Again
       </button>
