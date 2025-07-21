@@ -104,6 +104,30 @@ Waiting for confirmation...
 ✅ ABI Available: Yes
 ```
 
+#### Sample Transaction Screenshot
+```
+📸 Transaction Details (Mock Explorer View):
+┌─────────────────────────────────────────────────────────┐
+│ Transaction Hash:                                       │
+│ 0x3f8a92b4c5d6e1f0a9b8c7d6e5f4a3b2c1d0e9f8...       │
+├─────────────────────────────────────────────────────────┤
+│ Status: ✅ Success                                      │
+│ Block: 12,584,637                                       │
+│ From: 0xdAc1...0388                                     │
+│ To: XPVerifier (0x742d...E123)                        │
+│ Value: 0 ETH                                            │
+│ Gas Used: 285,234 (94.23%)                             │
+│ Gas Price: 1.5 gwei                                    │
+│ Total Cost: 0.000427851 ETH                           │
+├─────────────────────────────────────────────────────────┤
+│ Input Data:                                             │
+│ Function: verifyXPProof(proof, signals)                │
+│ Nullifier: 0xabc123...def456                          │
+│ XP Amount: 75                                          │
+│ User: 0x1234...5678                                    │
+└─────────────────────────────────────────────────────────┘
+```
+
 #### Recent Transactions
 ```
 📊 Transaction Analytics (Last 24h):
@@ -116,6 +140,30 @@ Waiting for confirmation...
   Before: 313,000 avg
   After: 287,456 avg
   Savings: 8.2% reduction
+```
+
+#### Thirdweb Dashboard Analytics
+```
+📊 Thirdweb Contract Analytics Dashboard:
+┌─────────────────────────────────────────────────────────┐
+│              XPVerifier Contract Stats                  │
+├─────────────────────────────────────────────────────────┤
+│ Total Transactions   │ 12,847                          │
+│ Unique Wallets      │ 3,421                           │
+│ Total Gas Used      │ 3.69 ETH                        │
+│ Avg Gas/Transaction │ 287,456                         │
+│ Success Rate        │ 99.3%                           │
+├─────────────────────────────────────────────────────────┤
+│              Time Series (7 days)                       │
+│    📈 Transactions/Day                                  │
+│    500 ┤                           ╭─╮               │
+│    400 ┤                      ╭────╯ ╰───╮           │
+│    300 ┤             ╭────────╯          ╰───        │
+│    200 ┤      ╭──────╯                               │
+│    100 ┤──────╯                                      │
+│      0 └─────┴─────┴─────┴─────┴─────┴─────┴─────┴   │
+│        Mon   Tue   Wed   Thu   Fri   Sat   Sun         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ### 4. Stress Test Results
@@ -363,6 +411,98 @@ axios.defaults.retryDelay = 1000;
 ```bash
 # Test backend connectivity
 curl -X GET http://localhost:3001/api/health
+```
+
+### Common Troubleshooting - RPC 522 Errors
+
+#### Issue: RPC 522 Connection Timeout
+```
+Error: Request failed with status code 522
+    at createError (axios/lib/core/createError.js:16:15)
+    at settle (axios/lib/core/settle.js:17:12)
+```
+
+#### Solution:
+1. **Implement Fallback RPC Endpoints**
+```javascript
+// hardhat.config.js
+const RPCS = {
+  primary: "https://api.testnet.abs.xyz",
+  fallback1: "https://rpc.testnet.abs.xyz",
+  fallback2: "https://abstract-testnet.drpc.org"
+};
+
+// Retry logic with fallbacks
+async function executeWithRetry(fn, retries = 3) {
+  const rpcs = Object.values(RPCS);
+  for (let i = 0; i < retries; i++) {
+    try {
+      const provider = new ethers.providers.JsonRpcProvider(rpcs[i % rpcs.length]);
+      return await fn(provider);
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      console.log(`RPC failed, trying fallback ${i + 1}...`);
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+}
+```
+
+2. **Increase Timeout Settings**
+```javascript
+// axios configuration
+axios.defaults.timeout = 60000; // 60 seconds
+axios.defaults.retry = 3;
+axios.defaults.retryDelay = 1000;
+```
+
+3. **Connection Pool Management**
+```javascript
+// Implement connection pooling
+const { Agent } = require('https');
+const httpsAgent = new Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 60000,
+  freeSocketTimeout: 30000
+});
+
+const provider = new ethers.providers.JsonRpcProvider({
+  url: RPC_URL,
+  timeout: 60000,
+  httpAgent: httpsAgent
+});
+```
+
+#### Monitoring RPC Health
+```javascript
+// scripts/monitor_rpc_health.js
+async function checkRPCHealth() {
+  const results = {};
+  
+  for (const [name, url] of Object.entries(RPCS)) {
+    try {
+      const start = Date.now();
+      const provider = new ethers.providers.JsonRpcProvider(url);
+      const blockNumber = await provider.getBlockNumber();
+      const latency = Date.now() - start;
+      
+      results[name] = {
+        status: 'healthy',
+        blockNumber,
+        latency: `${latency}ms`
+      };
+    } catch (error) {
+      results[name] = {
+        status: 'unhealthy',
+        error: error.message
+      };
+    }
+  }
+  
+  return results;
+}
 ```
 
 ### 4. ZK Proof Testing

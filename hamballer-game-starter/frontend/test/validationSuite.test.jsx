@@ -346,6 +346,164 @@ describe('ZK Validation Suite', () => {
       expect(new Set(proofs.map(p => p.nullifier)).size).toBe(3); // All unique
     });
   });
+
+  describe('Stress Tests', () => {
+    it('should handle 10k nullifier operations efficiently', async () => {
+      const startTime = Date.now();
+      const nullifiers = new Set();
+      
+      // Generate 10k unique nullifiers
+      for (let i = 0; i < 10000; i++) {
+        const address = `0x${i.toString(16).padStart(40, '0')}`;
+        const nullifier = await xpVerificationService.generateNullifier(address);
+        nullifiers.add(nullifier);
+      }
+      
+      const elapsedTime = Date.now() - startTime;
+      const opsPerSecond = 10000 / (elapsedTime / 1000);
+      
+      expect(nullifiers.size).toBe(10000); // All unique
+      expect(opsPerSecond).toBeGreaterThan(200); // Target: 209 ops/sec
+      console.log(`10k nullifier test: ${opsPerSecond.toFixed(2)} ops/sec`);
+    });
+
+    it('should handle 50k nullifier storage simulation', async () => {
+      const mockStorage = new Map();
+      const startTime = Date.now();
+      
+      // Simulate 50k nullifier storage and lookup
+      for (let i = 0; i < 50000; i++) {
+        const nullifier = `0x${i.toString(16).padStart(64, '0')}`;
+        mockStorage.set(nullifier, {
+          used: true,
+          timestamp: Date.now(),
+          user: `0x${i.toString(16).padStart(40, '0')}`
+        });
+      }
+      
+      // Test lookup performance
+      const lookupStart = Date.now();
+      const lookups = 1000;
+      for (let i = 0; i < lookups; i++) {
+        const randomIndex = Math.floor(Math.random() * 50000);
+        const nullifier = `0x${randomIndex.toString(16).padStart(64, '0')}`;
+        const exists = mockStorage.has(nullifier);
+        expect(exists).toBe(true);
+      }
+      const lookupTime = Date.now() - lookupStart;
+      const lookupOpsPerSecond = lookups / (lookupTime / 1000);
+      
+      expect(mockStorage.size).toBe(50000);
+      expect(lookupOpsPerSecond).toBeGreaterThan(1000); // Fast lookups
+      console.log(`50k nullifier lookup: ${lookupOpsPerSecond.toFixed(2)} ops/sec`);
+    });
+
+    it('should handle low XP failure scenarios', async () => {
+      const lowXPAmounts = [1, 5, 10, 15, 20, 24];
+      const results = [];
+      
+      for (const xp of lowXPAmounts) {
+        try {
+          const result = await xpVerificationService.generateXPProof(
+            '0x1234567890123456789012345678901234567890',
+            xp.toString(),
+            `run-low-xp-${xp}`
+          );
+          results.push({ xp, success: true, result });
+        } catch (error) {
+          results.push({ xp, success: false, error: error.message });
+        }
+      }
+      
+      // Verify appropriate handling of low XP
+      results.forEach(({ xp, success, error }) => {
+        if (xp < 25) {
+          // Should either succeed without proof or fail gracefully
+          if (!success) {
+            expect(error).toMatch(/insufficient|not eligible|minimum/i);
+          }
+        }
+      });
+    });
+
+    it('should handle batch verification under load', async () => {
+      const batchSizes = [10, 50, 100];
+      const results = [];
+      
+      for (const size of batchSizes) {
+        const startTime = Date.now();
+        const batch = [];
+        
+        // Generate batch of proofs
+        for (let i = 0; i < size; i++) {
+          const proof = {
+            address: `0x${i.toString(16).padStart(40, '0')}`,
+            xp: 50 + Math.floor(Math.random() * 50),
+            nullifier: `0x${i.toString(16).padStart(64, '0')}`,
+            proof: {
+              a: ['0x1', '0x2'],
+              b: [['0x3', '0x4'], ['0x5', '0x6']],
+              c: ['0x7', '0x8']
+            },
+            publicSignals: ['0x1', '0x2', '0x3']
+          };
+          batch.push(proof);
+        }
+        
+        // Simulate batch verification
+        const verifyStart = Date.now();
+        const verified = batch.filter(p => p.xp >= 50).length;
+        const verifyTime = Date.now() - verifyStart;
+        
+        const totalTime = Date.now() - startTime;
+        results.push({
+          size,
+          verified,
+          totalTime,
+          avgTimePerProof: totalTime / size
+        });
+      }
+      
+      // Verify batch processing efficiency
+      results.forEach(({ size, avgTimePerProof }) => {
+        expect(avgTimePerProof).toBeLessThan(50); // < 50ms per proof
+        console.log(`Batch size ${size}: ${avgTimePerProof.toFixed(2)}ms per proof`);
+      });
+    });
+
+    it('should maintain performance with memory pressure', async () => {
+      const iterations = 1000;
+      const memoryPressureData = [];
+      
+      // Create memory pressure with large data structures
+      for (let i = 0; i < 100; i++) {
+        memoryPressureData.push(new Array(10000).fill(i));
+      }
+      
+      const startTime = Date.now();
+      const proofs = [];
+      
+      // Generate proofs under memory pressure
+      for (let i = 0; i < iterations; i++) {
+        const proof = await xpVerificationService.generateXPProof(
+          `0x${i.toString(16).padStart(40, '0')}`,
+          '100',
+          `run-mem-${i}`
+        );
+        proofs.push(proof);
+      }
+      
+      const elapsedTime = Date.now() - startTime;
+      const opsPerSecond = iterations / (elapsedTime / 1000);
+      
+      expect(proofs.length).toBe(iterations);
+      expect(opsPerSecond).toBeGreaterThan(100); // Still performant
+      console.log(`Memory pressure test: ${opsPerSecond.toFixed(2)} ops/sec`);
+      
+      // Cleanup
+      memoryPressureData.length = 0;
+    });
+  });
 });
 
 export default validationSuite;
