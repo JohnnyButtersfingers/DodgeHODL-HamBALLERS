@@ -5,6 +5,14 @@ import { apiFetch } from '../services/useApiService';
 import xpVerificationService from '../services/xpVerificationService';
 import { useZKToasts } from './ZKErrorToast';
 import { zkLogger } from '../services/zkAnalyticsService';
+import { 
+  validateProofStructure, 
+  formatProofForContract, 
+  classifyProofError,
+  getProofErrorMessage,
+  requiresZKProof,
+  generateProofMetadata
+} from '../utils/zkUtils';
 import '../styles/mobile-fixes.css';
 
 const BADGE_TYPES = [

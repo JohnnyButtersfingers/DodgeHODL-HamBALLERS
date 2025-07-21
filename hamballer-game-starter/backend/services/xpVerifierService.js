@@ -1,5 +1,6 @@
 const { ethers } = require('ethers');
 const { db } = require('../config/database');
+const { zkProofGenerator } = require('./zkProofGenerator');
 
 // XPVerifier contract ABI
 const XPVERIFIER_ABI = [
@@ -52,11 +53,16 @@ class XPVerifierService {
       // Test contract connection
       const currentThreshold = await this.xpVerifierContract.getThreshold();
       
+      // Initialize ZK proof generator
+      console.log('🔧 Initializing ZK Proof Generator...');
+      await zkProofGenerator.initialize();
+      
       this.initialized = true;
       console.log('✅ XPVerifierService initialized');
       console.log(`📍 XPVerifier Contract: ${xpVerifierAddress}`);
       console.log(`🔑 Verifier Address: ${this.signer.address}`);
       console.log(`🎯 Current Threshold: ${currentThreshold.toString()}`);
+      console.log(`🔐 ZK Proof Generator: ${zkProofGenerator.getStatus().initialized ? 'Ready' : 'Test Mode'}`);
 
       return true;
     } catch (error) {
@@ -488,23 +494,31 @@ class XPVerifierService {
   /**
    * Generate a test proof (for development/testing)
    */
-  generateTestProof(playerAddress, claimedXP) {
-    // This would be replaced with actual ZK-proof generation in production
-    const nullifier = ethers.randomBytes(32);
-    const commitment = ethers.keccak256(ethers.toUtf8Bytes(`${playerAddress}-${claimedXP}-${Date.now()}`));
-    
-    // Mock proof array (8 elements for groth16)
-    const proof = Array.from({ length: 8 }, () => 
-      ethers.getBigInt(ethers.randomBytes(32))
-    );
+  generateTestProof(playerAddress, claimedXP, runId = 'test-run') {
+    try {
+      // Use the ZK proof generator for consistent test proofs
+      return zkProofGenerator.generateTestProof(playerAddress, claimedXP, runId);
+    } catch (error) {
+      console.warn('ZK proof generator not available, using fallback test proof');
+      
+      // Fallback to original implementation
+      const nullifier = ethers.randomBytes(32);
+      const commitment = ethers.keccak256(ethers.toUtf8Bytes(`${playerAddress}-${claimedXP}-${Date.now()}`));
+      
+      // Mock proof array (8 elements for groth16)
+      const proof = Array.from({ length: 8 }, () => 
+        ethers.getBigInt(ethers.randomBytes(32))
+      );
 
-    return {
-      nullifier: ethers.hexlify(nullifier),
-      commitment,
-      proof,
-      claimedXP,
-      threshold: 100 // Default threshold
-    };
+      return {
+        nullifier: ethers.hexlify(nullifier),
+        commitment,
+        proof,
+        claimedXP,
+        threshold: 100, // Default threshold
+        isTestProof: true
+      };
+    }
   }
 
   /**
