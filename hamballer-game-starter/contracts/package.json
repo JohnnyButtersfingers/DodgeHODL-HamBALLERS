@@ -7,9 +7,12 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "npx hardhat test",
+    "test:gas": "REPORT_GAS=true npx hardhat test",
+    "gas-report": "npx hardhat test --grep 'Gas Profiling' && cat gas-report.txt",
     "deploy:local": "hardhat run scripts/deploy_all.js --network localhost",
     "deploy:abstract": "hardhat run scripts/deploy_all.js --network abstract",
     "deploy:production": "hardhat run scripts/deploy_production.js --network abstract",
+    "deploy:simulate": "hardhat run scripts/simulate_deployment.js --network hardhat",
     "verify": "hardhat verify --network abstract",
     "node": "hardhat node"
   },

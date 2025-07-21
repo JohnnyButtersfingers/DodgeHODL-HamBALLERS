@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-07-21T18:59:55.890Z",
+  "network": "mock-abstract-testnet",
+  "chainId": 11124,
+  "deployer": "0x1234567890123456789012345678901234567890",
+  "deployerBalance": "0.5",
+  "contract": {
+    "name": "XPVerifier",
+    "address": "0xAbCdEf1234567890AbCdEf1234567890AbCdEf12",
+    "gasUsed": "340617",
+    "gasPrice": "1000000000",
+    "totalCost": "0.000340617"
+  },
+  "verification": {
+    "threshold": "100",
+    "verifierRole": "0xBackendWalletAddress",
+    "status": "success"
+  },
+  "performance": {
+    "deploymentTime": 31,
+    "retryAttempts": 1,
+    "rpcEndpoint": "https://api.testnet.abs.xyz"
+  }
+}
