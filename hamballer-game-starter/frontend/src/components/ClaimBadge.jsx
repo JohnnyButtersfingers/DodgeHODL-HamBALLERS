@@ -34,6 +34,8 @@ const ClaimBadge = () => {
   const [retrying, setRetrying] = useState({});
   const [showDevPanel, setShowDevPanel] = useState(false);
   const [proofGenerating, setProofGenerating] = useState({});
+  const [errorMessages, setErrorMessages] = useState({});
+  const [successMessages, setSuccessMessages] = useState({});
 
   useEffect(() => {
     if (address) {
@@ -232,6 +234,19 @@ const ClaimBadge = () => {
           
           // Show success message with transaction hash
           console.log('Badge claimed successfully:', result.txHash);
+          setSuccessMessages(prev => ({ 
+            ...prev, 
+            [badge.id]: `Badge claimed successfully! TX: ${result.txHash.slice(0, 10)}...` 
+          }));
+          
+          // Clear success message after 5 seconds
+          setTimeout(() => {
+            setSuccessMessages(prev => {
+              const newMessages = { ...prev };
+              delete newMessages[badge.id];
+              return newMessages;
+            });
+          }, 5000);
           
           // If XP verification was used, log that too
           if (verificationData) {
@@ -248,15 +263,34 @@ const ClaimBadge = () => {
       console.error('Error claiming badge:', error);
       
       // Handle different types of errors with appropriate UX
+      let userFriendlyError = '';
       if (error.message.includes('gas')) {
         showInsufficientGas('Unknown', 'Unknown');
+        userFriendlyError = '⛽ Insufficient gas. Please add more ETH to your wallet.';
       } else if (error.message.includes('network') || error.message.includes('connection')) {
         showNetworkError(error);
+        userFriendlyError = '🌐 Network error. Please check your connection and try again.';
       } else if (error.message.includes('not eligible')) {
         showNotEligible(badge.xpEarned, 0);
+        userFriendlyError = '❌ Not eligible for this badge. Minimum XP requirement not met.';
+      } else if (error.message.includes('timeout')) {
+        userFriendlyError = '⏱️ Request timed out. The network is busy, please try again.';
       } else {
         showInvalidProof(error.message);
+        userFriendlyError = '❗ Failed to claim badge. Please try again or contact support.';
       }
+      
+      // Set error message for UI display
+      setErrorMessages(prev => ({ ...prev, [badge.id]: userFriendlyError }));
+      
+      // Clear error message after 10 seconds
+      setTimeout(() => {
+        setErrorMessages(prev => {
+          const newMessages = { ...prev };
+          delete newMessages[badge.id];
+          return newMessages;
+        });
+      }, 10000);
       
       // Move to failed badges if not already there
       if (!failedBadges.find(b => b.id === badge.id)) {
@@ -519,7 +553,7 @@ const ClaimBadge = () => {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          <span>Generating Proof...</span>
+                          <span className="animate-pulse">Generating ZK Proof...</span>
                         </div>
                       ) : claiming[badge.id] ? (
                         <div className="flex items-center space-x-2">
@@ -527,11 +561,27 @@ const ClaimBadge = () => {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          <span>Claiming...</span>
+                          <span>Minting Badge...</span>
                         </div>
-                      ) : 'Claim Badge'}
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <span>🎯</span>
+                          <span>Claim Badge</span>
+                        </div>
+                      )}
                     </button>
                   </div>
+                  
+                  {/* Success/Error Messages */}
+                  {(successMessages[badge.id] || errorMessages[badge.id]) && (
+                    <div className={`mt-2 p-2 rounded text-sm ${
+                      successMessages[badge.id] 
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
+                      {successMessages[badge.id] || errorMessages[badge.id]}
+                    </div>
+                  )}
                 </div>
               );
             })}
