@@ -577,6 +577,285 @@ describe('📈 Performance and Stress Tests', () => {
     expect(mockXPVerifierContract.usedNullifiers.size).toBe(proofCount);
     console.log(`Processed ${proofCount} proofs in ${duration}ms`);
   });
+
+  it('should handle extreme stress: 10k+ nullifier operations', async () => {
+    const nullifierCount = 10000;
+    const nullifiers = Array(nullifierCount).fill().map((_, i) => 
+      ethers.keccak256(ethers.toUtf8Bytes(`extreme-stress-${i}`))
+    );
+    
+    console.log(`🚀 Starting extreme stress test: ${nullifierCount.toLocaleString()} nullifier operations...`);
+    const startTime = Date.now();
+    
+    // Test in batches to avoid overwhelming the mock system
+    const batchSize = 1000;
+    const batches = [];
+    
+    for (let i = 0; i < nullifiers.length; i += batchSize) {
+      const batch = nullifiers.slice(i, i + batchSize);
+      batches.push(batch);
+    }
+    
+    let totalProcessed = 0;
+    const batchResults = [];
+    
+    for (const batch of batches) {
+      const batchStart = Date.now();
+      
+      const results = await Promise.all(
+        batch.map(n => mockXPVerifierContract.isNullifierUsed(n))
+      );
+      
+      const batchEnd = Date.now();
+      const batchDuration = batchEnd - batchStart;
+      
+      batchResults.push({
+        size: batch.length,
+        duration: batchDuration,
+        throughput: Math.round(batch.length / (batchDuration / 1000))
+      });
+      
+      totalProcessed += results.length;
+      expect(results.every(r => r === false)).toBe(true);
+    }
+    
+    const endTime = Date.now();
+    const totalDuration = endTime - startTime;
+    const overallThroughput = Math.round(totalProcessed / (totalDuration / 1000));
+    
+    console.log(`✅ Processed ${totalProcessed.toLocaleString()} nullifier checks in ${totalDuration}ms`);
+    console.log(`📊 Overall throughput: ${overallThroughput.toLocaleString()} ops/second`);
+    console.log(`📈 Batch performance:`, batchResults.slice(0, 3).map(b => 
+      `${b.size} ops: ${b.duration}ms (${b.throughput} ops/s)`
+    ));
+    
+    expect(totalProcessed).toBe(nullifierCount);
+    expect(totalDuration).toBeLessThan(60000); // Should complete within 60 seconds
+    expect(overallThroughput).toBeGreaterThan(100); // At least 100 ops/second
+  });
+
+  it('should handle massive concurrent verification attempts', async () => {
+    const concurrentCount = 5000;
+    const player = createMockPlayer();
+    
+    console.log(`🔥 Testing ${concurrentCount.toLocaleString()} concurrent verification attempts...`);
+    
+    // Create proofs for concurrent testing
+    const proofs = Array(concurrentCount).fill().map((_, i) => 
+      createMockProof(player.address, 75, `concurrent-massive-${i}`)
+    );
+    
+    const startTime = Date.now();
+    
+    // Execute all verifications concurrently
+    const results = await Promise.allSettled(
+      proofs.map(proof => 
+        mockXPVerifierContract.verifyXPProof(
+          proof.nullifier,
+          proof.commitment,
+          proof.proof,
+          proof.claimedXP,
+          proof.threshold
+        ).catch(err => err)
+      )
+    );
+    
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    // Analyze results
+    const successes = results.filter(r => r.status === 'fulfilled' && r.value.hash).length;
+    const failures = results.filter(r => 
+      r.status === 'fulfilled' && r.value instanceof Error
+    ).length;
+    const rejections = results.filter(r => r.status === 'rejected').length;
+    
+    console.log(`📊 Concurrent verification results:`);
+    console.log(`  ✅ Successes: ${successes.toLocaleString()}`);
+    console.log(`  ❌ Failures: ${failures.toLocaleString()}`);
+    console.log(`  🚫 Rejections: ${rejections.toLocaleString()}`);
+    console.log(`  ⏱️  Total time: ${duration}ms`);
+    console.log(`  📈 Throughput: ${Math.round(concurrentCount / (duration / 1000)).toLocaleString()} ops/s`);
+    
+    expect(successes).toBe(concurrentCount); // All should succeed since unique nullifiers
+    expect(failures + rejections).toBe(0);
+    expect(duration).toBeLessThan(30000); // Should complete within 30 seconds
+  });
+
+  it('should handle memory pressure with large proof datasets', async () => {
+    const largeDatasetSize = 2500; // Large but manageable dataset
+    const players = Array(10).fill().map(() => createMockPlayer());
+    
+    console.log(`💾 Testing memory pressure with ${largeDatasetSize.toLocaleString()} proof dataset...`);
+    
+    const startTime = Date.now();
+    let memoryUsageBefore = 0;
+    
+    // Simulate memory usage tracking (in real env, would use process.memoryUsage())
+    try {
+      memoryUsageBefore = performance.memory ? performance.memory.usedJSHeapSize : 0;
+    } catch (e) {
+      memoryUsageBefore = 0; // Fallback for environments without performance.memory
+    }
+    
+    // Generate large dataset
+    const largeProofDataset = [];
+    for (let i = 0; i < largeDatasetSize; i++) {
+      const player = players[i % players.length];
+      const proof = createMockProof(player.address, 75 + (i % 50), `memory-test-${i}`);
+      largeProofDataset.push({
+        ...proof,
+        metadata: {
+          index: i,
+          batch: Math.floor(i / 100),
+          timestamp: Date.now() + i,
+          playerIndex: i % players.length
+        }
+      });
+    }
+    
+    // Process dataset in chunks to test sustained performance
+    const chunkSize = 250;
+    const chunks = [];
+    for (let i = 0; i < largeProofDataset.length; i += chunkSize) {
+      chunks.push(largeProofDataset.slice(i, i + chunkSize));
+    }
+    
+    let processedCount = 0;
+    const chunkResults = [];
+    
+    for (const [chunkIndex, chunk] of chunks.entries()) {
+      const chunkStart = Date.now();
+      
+      // Verify proofs in chunk
+      const verificationPromises = chunk.map(async (proofData) => {
+        const isUsed = await mockXPVerifierContract.isNullifierUsed(proofData.nullifier);
+        return { proofData, isUsed };
+      });
+      
+      const chunkVerifications = await Promise.all(verificationPromises);
+      const chunkEnd = Date.now();
+      
+      chunkResults.push({
+        chunkIndex,
+        size: chunk.length,
+        duration: chunkEnd - chunkStart,
+        throughput: Math.round(chunk.length / ((chunkEnd - chunkStart) / 1000))
+      });
+      
+      processedCount += chunk.length;
+      
+      // Validate all nullifiers are unique (not used)
+      expect(chunkVerifications.every(v => !v.isUsed)).toBe(true);
+    }
+    
+    let memoryUsageAfter = 0;
+    try {
+      memoryUsageAfter = performance.memory ? performance.memory.usedJSHeapSize : 0;
+    } catch (e) {
+      memoryUsageAfter = 0;
+    }
+    
+    const endTime = Date.now();
+    const totalDuration = endTime - startTime;
+    const memoryIncrease = memoryUsageAfter - memoryUsageBefore;
+    
+    console.log(`📊 Memory pressure test results:`);
+    console.log(`  📦 Dataset size: ${largeDatasetSize.toLocaleString()} proofs`);
+    console.log(`  ✅ Processed: ${processedCount.toLocaleString()} operations`);
+    console.log(`  ⏱️  Duration: ${totalDuration}ms`);
+    console.log(`  💾 Memory change: ${memoryIncrease > 0 ? '+' : ''}${(memoryIncrease / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`  📈 Avg throughput: ${Math.round(processedCount / (totalDuration / 1000)).toLocaleString()} ops/s`);
+    
+    // Performance assertions
+    expect(processedCount).toBe(largeDatasetSize);
+    expect(totalDuration).toBeLessThan(45000); // Should complete within 45 seconds
+    expect(chunkResults.every(r => r.throughput > 50)).toBe(true); // Each chunk should maintain >50 ops/s
+    
+    // Clean up large dataset
+    largeProofDataset.length = 0;
+  });
+
+  it('should handle sustained load over extended period', async () => {
+    const sustainedDuration = 10000; // 10 seconds of sustained load
+    const operationsPerSecond = 100;
+    const intervalMs = 1000 / operationsPerSecond; // 10ms intervals
+    
+    console.log(`⏰ Testing sustained load: ${operationsPerSecond} ops/second for ${sustainedDuration/1000} seconds...`);
+    
+    const startTime = Date.now();
+    const results = [];
+    let operationCount = 0;
+    
+    // Create a sustained load using intervals
+    const sustainedLoadPromise = new Promise((resolve) => {
+      const interval = setInterval(async () => {
+        const currentTime = Date.now();
+        
+        if (currentTime - startTime >= sustainedDuration) {
+          clearInterval(interval);
+          resolve(results);
+          return;
+        }
+        
+        // Generate and test nullifier
+        const nullifier = ethers.keccak256(ethers.toUtf8Bytes(`sustained-${operationCount}-${currentTime}`));
+        const operationStart = Date.now();
+        
+        try {
+          const isUsed = await mockXPVerifierContract.isNullifierUsed(nullifier);
+          const operationEnd = Date.now();
+          
+          results.push({
+            operationId: operationCount,
+            timestamp: currentTime,
+            duration: operationEnd - operationStart,
+            success: !isUsed // Should be false (not used)
+          });
+          
+          operationCount++;
+        } catch (error) {
+          results.push({
+            operationId: operationCount,
+            timestamp: currentTime,
+            duration: -1,
+            success: false,
+            error: error.message
+          });
+          operationCount++;
+        }
+      }, intervalMs);
+    });
+    
+    await sustainedLoadPromise;
+    
+    const endTime = Date.now();
+    const actualDuration = endTime - startTime;
+    
+    // Analyze sustained load performance
+    const successfulOps = results.filter(r => r.success).length;
+    const failedOps = results.filter(r => !r.success).length;
+    const avgOperationTime = results
+      .filter(r => r.duration > 0)
+      .reduce((sum, r) => sum + r.duration, 0) / results.length;
+    
+    const actualThroughput = (successfulOps / (actualDuration / 1000));
+    
+    console.log(`📊 Sustained load test results:`);
+    console.log(`  ⏱️  Target duration: ${sustainedDuration}ms`);
+    console.log(`  ⏱️  Actual duration: ${actualDuration}ms`);
+    console.log(`  🎯 Target ops/sec: ${operationsPerSecond}`);
+    console.log(`  📈 Actual ops/sec: ${actualThroughput.toFixed(1)}`);
+    console.log(`  ✅ Successful: ${successfulOps.toLocaleString()}`);
+    console.log(`  ❌ Failed: ${failedOps.toLocaleString()}`);
+    console.log(`  ⚡ Avg operation time: ${avgOperationTime.toFixed(2)}ms`);
+    
+    // Performance validation
+    expect(successfulOps).toBeGreaterThan(sustainedDuration / 1000 * operationsPerSecond * 0.8); // At least 80% of target
+    expect(failedOps).toBeLessThan(operationCount * 0.1); // Less than 10% failures
+    expect(avgOperationTime).toBeLessThan(50); // Average operation under 50ms
+    expect(actualThroughput).toBeGreaterThan(operationsPerSecond * 0.8); // At least 80% of target throughput
+  });
 });
 
 // Export for use in other test files
