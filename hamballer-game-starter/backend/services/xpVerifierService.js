@@ -35,7 +35,7 @@ class XPVerifierService {
    */
   async initialize() {
     try {
-      const rpcUrl = process.env.ABSTRACT_RPC_URL;
+      const rpcUrl = process.env.ABSTRACT_RPC_URL || 'https://api.testnet.abs.xyz';
       const xpVerifierAddress = process.env.XPVERIFIER_ADDRESS;
       const privateKey = process.env.XPVERIFIER_PRIVATE_KEY;
 
@@ -44,13 +44,22 @@ class XPVerifierService {
         return false;
       }
 
-      // Initialize provider and signer
-      this.provider = new ethers.JsonRpcProvider(rpcUrl);
+      // Initialize provider with fallback RPC
+      try {
+        this.provider = new ethers.JsonRpcProvider(rpcUrl);
+      } catch (providerError) {
+        console.warn(`⚠️ Primary RPC failed, trying fallback: ${providerError.message}`);
+        this.provider = new ethers.JsonRpcProvider('https://rpc.abstract.xyz');
+      }
+      
       this.signer = new ethers.Wallet(privateKey, this.provider);
       this.xpVerifierContract = new ethers.Contract(xpVerifierAddress, XPVERIFIER_ABI, this.signer);
 
-      // Test contract connection
-      const currentThreshold = await this.xpVerifierContract.getThreshold();
+      // Test contract connection with timeout
+      const currentThreshold = await Promise.race([
+        this.xpVerifierContract.getThreshold(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Contract call timeout')), 10000))
+      ]);
       
       this.initialized = true;
       console.log('✅ XPVerifierService initialized');
@@ -61,6 +70,8 @@ class XPVerifierService {
       return true;
     } catch (error) {
       console.error('❌ XPVerifierService initialization failed:', error.message);
+      console.error('Stack trace:', error.stack);
+      console.error('Error cause:', error.cause);
       return false;
     }
   }
@@ -226,37 +237,49 @@ class XPVerifierService {
       // Update status to processing
       await this.updateClaimStatus(claimId, 'pending', 'Processing proof verification');
 
-      // Get current gas price
-      const gasPrice = await this.provider.getFeeData();
+      // Get current gas price with timeout
+      const gasPrice = await Promise.race([
+        this.provider.getFeeData(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Gas price fetch timeout')), 10000))
+      ]);
       
-      // Estimate gas for the verification call
-      const gasEstimate = await this.xpVerifierContract.verifyXPProof.estimateGas(
-        proofData.nullifier,
-        proofData.commitment,
-        proofData.proof,
-        proofData.claimedXP,
-        proofData.threshold
-      );
+      // Estimate gas for the verification call with timeout
+      const gasEstimate = await Promise.race([
+        this.xpVerifierContract.verifyXPProof.estimateGas(
+          proofData.nullifier,
+          proofData.commitment,
+          proofData.proof,
+          proofData.claimedXP,
+          proofData.threshold
+        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Gas estimation timeout')), 15000))
+      ]);
 
       console.log(`⛽ Gas estimate: ${gasEstimate.toString()}`);
 
-      // Call the verification contract
-      const tx = await this.xpVerifierContract.verifyXPProof(
-        proofData.nullifier,
-        proofData.commitment,
-        proofData.proof,
-        proofData.claimedXP,
-        proofData.threshold,
-        {
-          gasLimit: gasEstimate + BigInt(100000), // Add buffer
-          gasPrice: gasPrice.gasPrice
-        }
-      );
+      // Call the verification contract with timeout
+      const tx = await Promise.race([
+        this.xpVerifierContract.verifyXPProof(
+          proofData.nullifier,
+          proofData.commitment,
+          proofData.proof,
+          proofData.claimedXP,
+          proofData.threshold,
+          {
+            gasLimit: gasEstimate + BigInt(100000), // Add buffer
+            gasPrice: gasPrice.gasPrice
+          }
+        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Transaction submission timeout')), 30000))
+      ]);
 
       console.log(`⏳ ZK-proof verification transaction sent: ${tx.hash}`);
 
-      // Wait for confirmation
-      const receipt = await tx.wait(2); // Wait for 2 confirmations
+      // Wait for confirmation with timeout
+      const receipt = await Promise.race([
+        tx.wait(2), // Wait for 2 confirmations
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Transaction confirmation timeout')), 60000))
+      ]);
       
       if (receipt.status === 1) {
         // Parse verification result from event logs
@@ -291,12 +314,25 @@ class XPVerifierService {
 
     } catch (error) {
       console.error(`❌ ZK-proof verification failed for ${playerAddress}:`, error.message);
+      console.error('Stack trace:', error.stack);
+      console.error('Error cause:', error.cause);
       
-      await this.updateClaimStatus(claimId, 'failed', error.message);
+      // Check for specific error types
+      let errorDetails = error.message;
+      if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
+        errorDetails = `Network error: ${error.message} - Check RPC connection`;
+      } else if (error.code === 'CALL_EXCEPTION') {
+        errorDetails = `Contract call failed: ${error.message} - Check contract state`;
+      } else if (error.message.includes('timeout')) {
+        errorDetails = `Operation timed out: ${error.message} - RPC may be slow`;
+      }
+      
+      await this.updateClaimStatus(claimId, 'failed', errorDetails);
       
       return {
         success: false,
-        error: error.message,
+        error: errorDetails,
+        errorCode: error.code,
         claimId
       };
     }
