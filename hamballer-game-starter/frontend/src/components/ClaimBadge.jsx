@@ -370,8 +370,167 @@ const ClaimBadge = () => {
               Use RainbowKit or your preferred mobile wallet to claim badges
             </p>
           </div>
+          
+          <div className="badge-modal-content divide-y divide-gray-700 mobile-scroll">
+            {unclaimedBadges.map(badge => {
+              const badgeType = getBadgeType(badge.tokenId);
+              return (
+                <div key={badge.id} className="badge-list-item">
+                  <div className="badge-info flex items-center space-x-3 sm:space-x-4 flex-1">
+                    <div className="text-2xl sm:text-3xl flex-shrink-0">{badgeType.emoji}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className={`font-semibold ${badgeType.color} responsive-text-lg`}>
+                        {badgeType.name} Badge
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Run: {badge.runId} • Season {badge.season}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="badge-actions flex-shrink-0">
+                    <button
+                      onClick={() => claimBadge(badge)}
+                      disabled={claiming[badge.id] || proofGenerating[badge.id]}
+                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus relative"
+                    >
+                      {proofGenerating[badge.id] ? (
+                        <div className="flex items-center space-x-2">
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Generating Proof...</span>
+                        </div>
+                      ) : claiming[badge.id] ? (
+                        <div className="flex items-center space-x-2">
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Claiming...</span>
+                        </div>
+                      ) : 'Claim Badge'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </motion.div>
+      )}
+
+      {/* Failed Badges */}
+      {failedBadges.length > 0 && (
+        <div className="badge-modal bg-red-900/20 border border-red-500/30 rounded-lg overflow-hidden">
+          <div className="badge-modal-header border-b border-red-500/30">
+            <h2 className="responsive-text-xl font-semibold text-white">
+              ⚠️ Failed Badges ({failedBadges.length})
+            </h2>
+            <p className="text-gray-400 text-sm mt-1">
+              These badges failed to mint and can be retried
+            </p>
+          </div>
+          
+          <div className="badge-modal-content divide-y divide-red-500/30 mobile-scroll">
+            {failedBadges.map(badge => {
+              const badgeType = getBadgeType(badge.tokenId);
+              const canRetry = !isRetryLimitReached(badge);
+              const isUnclaimable = isRetryLimitReached(badge);
+              
+              return (
+                <div key={badge.id} className="badge-list-item">
+                  <>
+                    <div className="badge-info flex items-start space-x-3 flex-1">
+                      <div className="relative flex-shrink-0">
+                        <div className={`text-2xl sm:text-3xl ${isUnclaimable ? 'opacity-30' : 'opacity-50'}`}>
+                          {badgeType.emoji}
+                        </div>
+                        {isUnclaimable && (
+                          <div className="absolute -top-1 -right-1 text-red-500 text-sm sm:text-lg">❌</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center space-x-2 flex-wrap">
+                          <div className={`font-semibold ${badgeType.color} ${isUnclaimable ? 'opacity-50' : ''} responsive-text-lg`}>
+                            {badgeType.name} Badge
+                          </div>
+                          {isUnclaimable && (
+                            <div 
+                              className="text-red-400 text-xs sm:text-sm font-medium cursor-help"
+                              title="Retry limit reached. Contact support or refresh your run."
+                            >
+                              (Unclaimable)
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Run: {badge.runId} • Season {badge.season}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="badge-actions flex-shrink-0">
+                      {canRetry ? (
+                        <button
+                          onClick={() => retryBadgeClaim(badge)}
+                          disabled={retrying[badge.id]}
+                          className="mobile-button-sm bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black rounded text-sm transition-colors mobile-focus"
+                        >
+                          {retrying[badge.id] ? 'Retrying...' : 'Retry'}
+                        </button>
+                      ) : (
+                        <div 
+                          className="mobile-button-sm bg-red-600/30 text-red-300 rounded text-sm cursor-help pointer-events-none"
+                          title="Retry limit reached. Contact support or refresh your run."
+                        >
+                            Max Retries
+                          </div>
+                        )}
+                        
+                        <button
+                          onClick={() => abandonBadge(badge.id)}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          {isUnclaimable ? 'Dismiss' : 'Abandon'}
+                        </button>
+                    </div>
+                    
+                    <div className={`rounded p-3 ${isUnclaimable ? 'bg-red-900/50' : 'bg-red-900/30'}`}>
+                      <div className="text-sm text-red-400 mb-1">
+                        <strong>Error:</strong> {badge.failureReason || 'Unknown error'}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Retry attempts: {badge.retryCount || 0}/5
+                        {isUnclaimable && (
+                          <span className="text-red-300"> • Contact support for assistance</span>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* No Badges State */}
+      {!loading && unclaimedBadges.length === 0 && failedBadges.length === 0 && (
+        <div className="bg-gray-800/50 rounded-lg p-12 text-center">
+          <div className="text-6xl mb-4">🏆</div>
+          <h2 className="text-xl font-semibold text-white mb-2">No Badges to Claim</h2>
+          <p className="text-gray-400">
+            Complete runs to earn XP and unlock badges!
+          </p>
+        </div>
+      )}
     </div>
   );
 };

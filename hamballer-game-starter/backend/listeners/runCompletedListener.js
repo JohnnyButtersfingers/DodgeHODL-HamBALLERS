@@ -24,6 +24,15 @@ let isInitialized = false;
 let mintingQueue = [];
 let isMinting = false;
 
+// Import Thirdweb service
+let thirdwebService;
+try {
+  thirdwebService = require('../services/thirdwebService');
+} catch (error) {
+  console.warn('⚠️ Thirdweb service not available, using fallback:', error.message);
+  thirdwebService = null;
+}
+
 /**
  * Initialize contracts and provider
  */
@@ -116,42 +125,56 @@ async function generateBadgeTokenId(xpEarned, season) {
 /**
  * Mint XPBadge for a player
  */
-async function mintXPBadge(playerAddress, xpEarned, season) {
+async function mintXPBadge(playerAddress, xpEarned, season = 1) {
   try {
-    console.log(`🏆 Attempting to mint XPBadge for ${playerAddress} with ${xpEarned} XP in season ${season}`);
+    console.log(`🎫 Minting XP badge for ${playerAddress} (${xpEarned} XP, Season ${season})`);
     
-    // Generate badge tokenId
-    const { tokenId, tier, xpRequired } = await generateBadgeTokenId(xpEarned, season);
-    
-    // Check if player already has this badge
-    const existingBadge = await db.getPlayerBadge(playerAddress, tokenId);
-    if (existingBadge) {
-      console.log(`⚠️ Player ${playerAddress} already has badge ${tokenId} (${tier})`);
-      return { success: false, reason: 'Badge already owned' };
+    // Use Thirdweb if available, otherwise fallback to ethers
+    if (thirdwebService && thirdwebService.isInitialized()) {
+      console.log('   Using Thirdweb service for minting...');
+      
+      const tokenId = await generateBadgeTokenId(xpEarned);
+      const result = await thirdwebService.mintBadge(playerAddress, tokenId, xpEarned, season);
+      
+      console.log('✅ Badge minted via Thirdweb:', result.transactionHash);
+      return {
+        success: true,
+        transactionHash: result.transactionHash,
+        tokenId: result.tokenId,
+        xp: result.xp,
+        season: result.season
+      };
+    } else {
+      console.log('   Using fallback ethers for minting...');
+      
+      // Fallback to existing ethers implementation
+      if (!contracts.xpBadge) {
+        throw new Error('XPBadge contract not available');
+      }
+
+      const tokenId = await generateBadgeTokenId(xpEarned);
+      const tx = await contracts.xpBadge.mintBadge(playerAddress, tokenId, xpEarned, season);
+      
+      console.log('   Transaction hash:', tx.hash);
+      console.log('   Waiting for confirmation...');
+      
+      const receipt = await tx.wait();
+      console.log('✅ Badge minted via ethers:', receipt.transactionHash);
+      
+      return {
+        success: true,
+        transactionHash: receipt.transactionHash,
+        tokenId: tokenId,
+        xp: xpEarned,
+        season: season
+      };
     }
-    
-    // Add to minting queue
-    mintingQueue.push({
-      playerAddress,
-      tokenId,
-      xpEarned,
-      season,
-      tier,
-      timestamp: new Date().toISOString()
-    });
-    
-    console.log(`📋 Added badge minting to queue for ${playerAddress}: ${tier} (${tokenId})`);
-    
-    // Process queue if not already processing
-    if (!isMinting) {
-      await processMintingQueue();
-    }
-    
-    return { success: true, tokenId, tier, xpRequired };
-    
   } catch (error) {
-    console.error('❌ Error in mintXPBadge:', error.message);
-    return { success: false, error: error.message };
+    console.error('❌ Failed to mint XP badge:', error.message);
+    if (error.cause) {
+      console.error('   Cause:', error.cause);
+    }
+    throw error;
   }
 }
 

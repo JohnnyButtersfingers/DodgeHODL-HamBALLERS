@@ -72,40 +72,56 @@ pnpm build:all
 
 For environments without internet access, you can set up dependencies using a local pnpm store:
 
-### Method 1: Using pnpm store export (pnpm v9 and earlier)
+### Prerequisites
+- OpenZeppelin contracts v5.3.0 (already configured)
+- pnpm v8.10.0+ (v10+ recommended for better offline support)
+- All required packages: jest, vitest, hardhat, @openzeppelin/contracts@5.3.0, solc@0.8.20
+
+### Method 1: Using the setup script (recommended)
 ```bash
 # On a machine with internet access:
+cd hamballer-game-starter
 pnpm install:all
-pnpm store export ./scripts/pnpm-store/
+cp -r $(pnpm store path)/* ../scripts/pnpm-store/
+
+# Transfer the project to offline environment, then:
+cd /path/to/project
+./scripts/setup-offline.sh
 ```
 
-### Method 2: Manual store copy (recommended for pnpm v10+)
+### Method 2: Manual store setup (pnpm v10+)
 ```bash
 # On a machine with internet access:
+cd hamballer-game-starter
 pnpm install:all
 
-# Find your store location
+# Find your store location and copy it
 pnpm store path
+cp -r $(pnpm store path)/* ../scripts/pnpm-store/
 
-# Copy the store contents
-cp -r $(pnpm store path)/* ./scripts/pnpm-store/
-
-# Transfer the project with pnpm-store/ to offline environment
+# Transfer the project with scripts/pnpm-store/ to offline environment
 ```
 
 ### Installing in offline environment
 ```bash
-# Set up offline environment
-export PNPM_STORE_DIR="./scripts/pnpm-store"
-
-# Install dependencies offline
-pnpm install:all --offline
-
-# Or use the helper script
+# Option A: Use the automated script
 ./scripts/setup-offline.sh
+
+# Option B: Manual installation
+export PNPM_STORE_DIR="./scripts/pnpm-store"
+cd hamballer-game-starter
+pnpm install:all --offline
 ```
 
-**Note**: The `pnpm store export` command may not work properly in pnpm v10+. Use the manual copy method as a reliable fallback.
+### Required tarballs verified
+The offline store includes all necessary packages:
+- jest@29.7.0 (backend testing)
+- vitest@0.34.6 (frontend testing)  
+- hardhat@2.25.0 (contract development)
+- @openzeppelin/contracts@5.3.0 (smart contract framework)
+- solc@0.8.20 (Solidity compiler)
+
+**Note**: The `pnpm store export` command was deprecated in pnpm v10+. Use the manual copy method as shown above.
 
 ## 🔧 Technology Stack
 

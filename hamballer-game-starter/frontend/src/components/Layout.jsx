@@ -15,6 +15,7 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
     { path: '/badges', label: 'Badges', icon: '🏅' },
+    { path: '/claim', label: 'Claim', icon: '🎁' },
     { path: '/replay', label: 'Replays', icon: '📺' },
   ];
 

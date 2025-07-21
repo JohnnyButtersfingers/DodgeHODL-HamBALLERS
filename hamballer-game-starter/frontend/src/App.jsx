@@ -13,6 +13,7 @@ import Dashboard from './components/Dashboard';
 import ReplayViewer from './components/ReplayViewer';
 import Leaderboard from './components/Leaderboard';
 import ClaimBadge from './components/ClaimBadge';
+import ClaimPanel from './components/ClaimPanel'; // New claim panel
 import LaunchDashboard from './components/LaunchDashboard';
 import RecentClaims from './components/RecentClaims';
 import QASummaryModal from './components/QASummaryModal';
@@ -125,6 +126,7 @@ function App() {
                         <Route path="dashboard" element={<Dashboard />} />
                         <Route path="leaderboard" element={<Leaderboard />} />
                         <Route path="badges" element={<ClaimBadge />} />
+                        <Route path="claim" element={<ClaimPanel />} />
                         <Route path="replay/:runId?" element={<ReplayViewer />} />
                         {/* Internal QA & Launch Tools */}
                         <Route path="launch-dashboard" element={<LaunchDashboard />} />

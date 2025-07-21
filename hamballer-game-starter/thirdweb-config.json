@@ -1,0 +1,66 @@
+{
+  "name": "HamBaller.xyz Contracts",
+  "description": "Smart contracts for the HamBaller.xyz DODGE & HODL game",
+  "network": {
+    "chainId": 11124,
+    "name": "Abstract Testnet",
+    "rpc": "https://api.testnet.abs.xyz"
+  },
+  "contracts": {
+    "XPBadge": {
+      "address": "0xE960B46dffd9de6187Ff1B48B31B3F186A07303b",
+      "type": "ERC1155",
+      "name": "HamBaller XP Badge",
+      "description": "Achievement badges for HamBaller.xyz DODGE & HODL game",
+      "symbol": "HAMXP",
+      "category": "nft",
+      "explorerUrl": "https://explorer.testnet.abs.xyz/address/0xE960B46dffd9de6187Ff1B48B31B3F186A07303b",
+      "features": [
+        "mint",
+        "burn",
+        "transfer",
+        "batch_operations",
+        "metadata",
+        "supply_tracking",
+        "royalties"
+      ],
+      "abi": [
+        "function balanceOf(address account, uint256 id) view returns (uint256)",
+        "function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])",
+        "function mintBadge(address to, uint256 tokenId, uint256 xp, uint256 season) returns (bool)",
+        "function uri(uint256 tokenId) view returns (string)",
+        "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
+        "event BadgeMinted(address indexed player, uint256 indexed tokenId, uint256 xp, uint256 season)"
+      ]
+    },
+    "XPVerifier": {
+      "address": "0x5e33911d9c793e5E9172D9e5C4354e21350403E3",
+      "type": "Custom",
+      "name": "XPVerifier",
+      "description": "ZK-proof verification for XP badges",
+      "category": "verification",
+      "explorerUrl": "https://explorer.testnet.abs.xyz/address/0x5e33911d9c793e5E9172D9e5C4354e21350403E3",
+      "features": [
+        "read_functions",
+        "write_functions",
+        "events",
+        "analytics"
+      ],
+      "abi": [
+        "function verifyProof(bytes calldata proof, uint256[2] calldata input) view returns (bool)",
+        "event ProofVerified(address indexed verifier, bool success)"
+      ]
+    }
+  },
+  "features": {
+    "analytics": true,
+    "events": true,
+    "contractInteraction": true,
+    "batchOperations": true
+  },
+  "metadata": {
+    "createdAt": "2025-07-20T18:05:00.000Z",
+    "version": "1.0.0",
+    "repository": "https://github.com/your-org/hamballer-game-starter"
+  }
+} 

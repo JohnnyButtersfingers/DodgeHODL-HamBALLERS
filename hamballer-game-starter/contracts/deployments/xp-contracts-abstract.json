@@ -1,0 +1,17 @@
+{
+  "network": "abstract-testnet",
+  "chainId": 11124,
+  "deployer": "0xdAc1428c8268Cb2A8692d9c88d96878C6B9F0388",
+  "deploymentTime": "2025-07-19T23:12:21.956Z",
+  "contracts": {
+    "XPBadge": {
+      "address": "0xE960B46dffd9de6187Ff1B48B31B3F186A07303b",
+      "name": "HamBaller XP Badge",
+      "symbol": "HXPB"
+    },
+    "XPVerifier": {
+      "address": "0x5e33911d9c793e5E9172D9e5C4354e21350403E3",
+      "name": "XPVerifier"
+    }
+  }
+}
