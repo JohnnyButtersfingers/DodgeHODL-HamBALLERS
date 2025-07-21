@@ -1,6 +1,17 @@
 const { db } = require('../config/database');
 const EventEmitter = require('events');
 
+// Helper for richer error logging
+function logDetailedError(context, error) {
+  console.error(`❌ ${context}:`, error.message);
+  if (error.cause) {
+    console.error('   Cause:', error.cause.message || error.cause);
+  }
+  if (error.stack) {
+    console.error('   Stack:', error.stack.split('\n').slice(0, 5).join('\n'));
+  }
+}
+
 class AchievementsService extends EventEmitter {
   constructor() {
     super();
@@ -43,10 +54,7 @@ class AchievementsService extends EventEmitter {
         return false;
       }
     } catch (error) {
-      console.error('❌ AchievementsService initialization failed:', error.message);
-      if (error.cause) {
-        console.error('   Cause:', error.cause.message);
-      }
+      logDetailedError('AchievementsService initialization failed', error);
       return false;
     }
   }
@@ -117,7 +125,7 @@ class AchievementsService extends EventEmitter {
       return unlockedAchievements;
 
     } catch (error) {
-      console.error('❌ Error checking run completion achievements:', error.message);
+      logDetailedError('Error checking run completion achievements', error);
       return [];
     }
   }
@@ -163,7 +171,7 @@ class AchievementsService extends EventEmitter {
       return unlockedAchievements;
 
     } catch (error) {
-      console.error('❌ Error checking badge mint achievements:', error.message);
+      logDetailedError('Error checking badge mint achievements', error);
       return [];
     }
   }

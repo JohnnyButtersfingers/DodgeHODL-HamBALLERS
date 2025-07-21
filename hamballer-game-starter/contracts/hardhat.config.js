@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
+require("hardhat-gas-reporter"); // 🔧 Gas profiling
 
 // Disable automatic compiler downloads for offline development
 process.env.HARDHAT_COMPILERS_DOWNLOAD = 'false';
@@ -55,6 +56,13 @@ module.exports = {
       gasPrice: parseInt(process.env.GAS_PRICE || "1000000000"),
       gas: parseInt(process.env.GAS_LIMIT || "8000000"),
     },
+    mainnet: {
+      url: process.env.ABS_MAINNET_RPC_URL || "https://api.mainnet.abs.xyz",
+      chainId: 2741,
+      accounts: [deployerPrivateKey],
+      gasPrice: parseInt(process.env.MAINNET_GAS_PRICE || "3000000000"),
+      gas: parseInt(process.env.MAINNET_GAS_LIMIT || "8000000"),
+    },
   },
   etherscan: {
     apiKey: {
@@ -72,8 +80,10 @@ module.exports = {
     ],
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
+    enabled: true,
     currency: "USD",
+    excludeContracts: [],
+    src: "./contracts", // profile contracts directory
   },
   mocha: {
     timeout: 40000,

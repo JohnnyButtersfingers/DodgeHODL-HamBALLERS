@@ -3,6 +3,11 @@ const { fetch: undiciFetch } = require('undici');
 global.fetch = undiciFetch;
 console.log('✅ Undici fetch overridden globally');
 
+// Add global axios config for increased timeout reliability
+const axios = require('axios');
+axios.defaults.timeout = 60_000; // 60 seconds
+console.log('⏰ Axios timeout set to 60 seconds');
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -36,6 +41,7 @@ const dbpPriceRoutes = require('./routes/dbp-price');
 const leaderboardRoutes = require('./routes/leaderboard');
 const badgesRoutes = require('./routes/badges');
 const achievementsRoutes = require('./routes/achievements');
+const xpRoutes = require('./routes/xp'); // ⚡ NEW: XP proof generation endpoints
 
 // Controllers
 const { broadcastUpdate } = require('./controllers/runLogger');
@@ -193,6 +199,7 @@ app.use('/api/dbp-price', dbpPriceRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/badges', badgesRoutes);
 app.use('/api/achievements', achievementsRoutes);
+app.use('/api/xp', xpRoutes); // ⚡ mount new XP routes
 
 // WebSocket broadcast utility endpoint (for testing)
 app.post('/api/broadcast', (req, res) => {

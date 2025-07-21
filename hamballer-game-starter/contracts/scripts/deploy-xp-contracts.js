@@ -58,7 +58,7 @@ async function main() {
   // Deploy XPVerifier Contract (stub for now)
   console.log("\n2️⃣ Deploying XPVerifier Contract...");
   const XPVerifier = await ethers.getContractFactory("XPVerifier");
-  const xpVerifier = await XPVerifier.deploy();
+  const xpVerifier = await XPVerifier.deploy({ gasLimit: 8000000 }); // 8M gas limit as requested
   await xpVerifier.waitForDeployment();
   const xpVerifierAddress = await xpVerifier.getAddress();
   console.log("✅ XPVerifier deployed to:", xpVerifierAddress);

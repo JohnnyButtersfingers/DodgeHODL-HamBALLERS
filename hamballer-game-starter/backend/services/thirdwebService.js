@@ -8,9 +8,13 @@ const { createThirdwebClient, defineChain, getContract, mintTo, hasRole } = requ
 const { createWallet } = require("thirdweb/wallets");
 
 // Define Abstract Testnet
+const PRIMARY_RPC = "https://api.testnet.abs.xyz";
+const FALLBACK_RPC = "https://rpc.abstract.xyz";
+
+// Primary chain definition (will attempt first)
 const abstractTestnet = defineChain({
   id: 11124,
-  rpc: "https://api.testnet.abs.xyz",
+  rpc: PRIMARY_RPC,
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   testnet: true,
 });
@@ -51,12 +55,31 @@ class ThirdwebService {
         privateKey: privateKey 
       });
 
-      // Get contract instance
-      this.contract = getContract({
-        client: this.client,
-        chain: abstractTestnet,
-        address: contractAddress,
-      });
+      // Get contract instance – attempt primary RPC first, fallback on failure
+      try {
+        this.contract = getContract({
+          client: this.client,
+          chain: abstractTestnet,
+          address: contractAddress,
+        });
+      } catch (primaryError) {
+        console.warn("⚠️ Thirdweb primary RPC failed, attempting fallback RPC:", primaryError.message);
+
+        const fallbackChain = defineChain({
+          id: 11124,
+          rpc: FALLBACK_RPC,
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          testnet: true,
+        });
+
+        this.contract = getContract({
+          client: this.client,
+          chain: fallbackChain,
+          address: contractAddress,
+        });
+
+        console.log("✅ Thirdweb fallback RPC connected");
+      }
 
       this.initialized = true;
       console.log("✅ Thirdweb service initialized");

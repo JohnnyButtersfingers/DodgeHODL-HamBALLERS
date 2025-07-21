@@ -40,6 +40,12 @@ class EventRecovery {
       return true;
     } catch (error) {
       console.error('❌ EventRecovery initialization failed:', error.message);
+      if (error.cause) {
+        console.error('   Cause:', error.cause.message);
+      }
+      if (error.stack) {
+        console.error('   Stack:', error.stack.split('\n').slice(0, 5).join('\n'));
+      }
       return false;
     }
   }

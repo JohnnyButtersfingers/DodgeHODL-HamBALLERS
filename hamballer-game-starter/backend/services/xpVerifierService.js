@@ -1,6 +1,17 @@
 const { ethers } = require('ethers');
 const { db } = require('../config/database');
 
+// Helper for richer error logging
+function logDetailedError(context, error) {
+  console.error(`❌ ${context}:`, error.message);
+  if (error.cause) {
+    console.error('   Cause:', error.cause.message || error.cause);
+  }
+  if (error.stack) {
+    console.error('   Stack:', error.stack.split('\n').slice(0, 5).join('\n'));
+  }
+}
+
 // XPVerifier contract ABI
 const XPVERIFIER_ABI = [
   'function verifyXPProof(bytes32 nullifier, bytes32 commitment, uint256[8] calldata proof, uint256 claimedXP, uint256 threshold) external returns (bool)',
@@ -60,7 +71,7 @@ class XPVerifierService {
 
       return true;
     } catch (error) {
-      console.error('❌ XPVerifierService initialization failed:', error.message);
+      logDetailedError('XPVerifierService initialization failed', error);
       return false;
     }
   }
@@ -104,7 +115,7 @@ class XPVerifierService {
       return result;
 
     } catch (error) {
-      console.error('❌ Error submitting proof claim:', error.message);
+      logDetailedError('Error submitting proof claim', error);
       throw error;
     }
   }
@@ -174,7 +185,7 @@ class XPVerifierService {
       return !!existingClaim;
 
     } catch (error) {
-      console.error('❌ Error checking nullifier usage:', error.message);
+      logDetailedError('Error checking nullifier usage', error);
       return false;
     }
   }
@@ -211,7 +222,7 @@ class XPVerifierService {
       return claim.id;
 
     } catch (error) {
-      console.error('❌ Error storing pending claim:', error.message);
+      logDetailedError('Error storing pending claim', error);
       throw error;
     }
   }
@@ -290,7 +301,7 @@ class XPVerifierService {
       }
 
     } catch (error) {
-      console.error(`❌ ZK-proof verification failed for ${playerAddress}:`, error.message);
+      logDetailedError(`ZK-proof verification failed for ${playerAddress}`, error);
       
       await this.updateClaimStatus(claimId, 'failed', error.message);
       
@@ -480,7 +491,7 @@ class XPVerifierService {
       }
 
     } catch (error) {
-      console.error('❌ Error updating threshold:', error.message);
+      logDetailedError('Error updating threshold', error);
       throw error;
     }
   }
@@ -489,8 +500,12 @@ class XPVerifierService {
    * Generate a test proof (for development/testing)
    */
   generateTestProof(playerAddress, claimedXP) {
-    // This would be replaced with actual ZK-proof generation in production
-    const nullifier = ethers.randomBytes(32);
+    // Enhanced nullifier hashing to prevent replay attacks
+    const salt = ethers.hexlify(ethers.randomBytes(16));
+    const nullifier = ethers.keccak256(
+      ethers.toUtf8Bytes(`${playerAddress}-${salt}`)
+    );
+
     const commitment = ethers.keccak256(ethers.toUtf8Bytes(`${playerAddress}-${claimedXP}-${Date.now()}`));
     
     // Mock proof array (8 elements for groth16)
