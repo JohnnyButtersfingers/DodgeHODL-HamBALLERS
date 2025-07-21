@@ -254,4 +254,255 @@ git push
 
 ---
 
+## 📋 Sample Simulation Output
+
+### Contract Deployment Simulation
+```bash
+$ npx hardhat run scripts/deploy_xpverifier_simple.js --network abstract
+
+🚀 Deploying XPVerifierSimple Contract...
+==========================================
+📍 Deploying with account: 0xa1b2c3d4e5f6789012345678901234567890abcd
+💰 Account balance: 0.05 ETH
+
+🔐 Deploying XPVerifierSimple contract...
+⛽ Estimated gas: 2,847,292
+💸 Gas price: 1.2 gwei
+⏳ Deployment transaction sent: 0x123abc456def789...
+⏳ Waiting for confirmation...
+
+✅ XPVerifierSimple deployed to: 0x9876543210fedcba0987654321098765432109876
+
+🔍 Verifying deployment...
+📊 Contract verification:
+  - Owner: 0xa1b2c3d4e5f6789012345678901234567890abcd
+  - Threshold: 50
+  - Deployer is owner: true
+
+🧪 Testing contract functionality...
+✅ Nullifier check test: PASSED
+🧪 Testing proof verification...
+✅ Test proof verification: PASSED
+✅ Nullifier marking test: PASSED
+
+🎉 XPVerifierSimple Deployment Complete!
+========================================
+📍 Contract Address: 0x9876543210fedcba0987654321098765432109876
+🔗 Explorer: https://explorer.testnet.abs.xyz/address/0x9876543210fedcba0987654321098765432109876
+🚀 Ready for ZK proof verification!
+```
+
+### Gas Profiling Simulation
+```bash
+$ npx hardhat run scripts/profile_gas_verify.js --network localhost
+
+⛽ XPVerifier Gas Profiling Analysis
+====================================
+
+🚀 Deploying contract for gas analysis...
+📍 Contract deployed at: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+
+📊 Deployment Gas Analysis:
+  Gas Used: 2,847,292
+  Estimated Cost: 0.0034167504 ETH
+
+🧪 Profiling verifyXPProof Function:
+=====================================
+
+📋 Testing: Standard Proof (50 XP)
+  📊 Gas Estimate: 315,423
+  📊 Actual Usage: 312,891
+  📊 Difference: 2,532
+  ✅ Gas usage within 320k target
+
+📋 Testing: High XP Proof (100 XP)
+  📊 Gas Estimate: 315,845
+  📊 Actual Usage: 313,127
+  📊 Difference: 2,718
+  ✅ Gas usage within 320k target
+
+📋 Testing: Edge Case (Exact Threshold)
+  📊 Gas Estimate: 315,234
+  📊 Actual Usage: 312,678
+  📊 Difference: 2,556
+  ✅ Gas usage within 320k target
+
+🔧 Profiling Other Functions:
+==============================
+  📊 isNullifierUsed: 23,814 gas
+  📊 getThreshold: 23,561 gas
+  📊 updateThreshold: 46,725 gas
+
+🔍 Gas Optimization Analysis:
+==============================
+
+💡 Storage Optimization:
+  Issue: Multiple storage reads for nullifier tracking
+  Impact: ~20k gas per additional storage operation
+  Solution: Implement packed storage for related data and use events for historical tracking
+  Estimated Savings: 10k-30k gas per verification
+
+🎯 Summary:
+===========
+📊 Average verification gas: 312,899
+🎯 Target gas usage: 320,000
+📈 Performance: ✅ Within target
+🔧 Optimization opportunities: 3
+```
+
+### Integration Test Simulation
+```bash
+$ ./test-zk-integration.sh
+
+🧪 ZK Integration Tests
+======================
+
+✅ Dependencies installed successfully
+✅ ZK Environment configured
+
+🧪 Testing ZK Integration
+-------------------------
+
+🔐 Testing backend ZK proof generator...
+🔧 Initializing ZK Proof Generator...
+✅ Circuit WASM loaded
+✅ Circuit zkey loaded  
+✅ Verification key loaded
+🎉 ZK Proof Generator initialized successfully
+
+🧪 Testing XP: 50, Address: 0x12345678...
+🔐 Generating ZK proof for 0x1234567890abcdef1234567890abcdef12345678, XP: 50
+✅ ZK proof generated successfully
+✅ Proof generated - XP: 50, Nullifier: 0xc04b027eb282785d8b...
+✅ ZK proof generator test passed
+
+🌐 Testing API Endpoints
+------------------------
+
+✅ Backend server started (PID: 12345)
+✅ ZK proof generation endpoint responded successfully
+✅ Proof status endpoint responded successfully
+
+🎨 Testing Frontend Integration
+-------------------------------
+
+✅ Frontend ZK utilities test passed
+
+📋 Integration Summary
+=====================
+
+✅ All ZK proof generation tests: PASSED
+✅ All API endpoint tests: PASSED  
+✅ All frontend utility tests: PASSED
+✅ All nullifier system tests: PASSED
+✅ All replay attack prevention tests: PASSED
+
+🔗 Next Steps:
+1. 📦 Run 'pnpm install:all' to install all dependencies
+2. 🔧 Deploy XPVerifier contract: 'cd contracts && pnpm run deploy:abstract'
+3. ⚙️  Update XPVERIFIER_ADDRESS in backend .env
+4. 🚀 Start development servers: 'pnpm start:dev'
+5. 🧪 Test badge claiming with ZK proofs in the /badges route
+
+🎉 ZK Integration validation complete!
+```
+
+### E2E Test Suite Simulation
+```bash
+$ npm run test frontend/test/e2e/validationSuite.test.jsx
+
+ ✓ frontend/test/e2e/validationSuite.test.jsx (47)
+   ✓ 🔐 ZK Proof Validation Suite (39)
+     ✓ 🧪 Nullifier System Tests (4)
+       ✓ should generate unique nullifiers for different players (15ms)
+       ✓ should generate unique nullifiers for same player, different runs (8ms)
+       ✓ should generate consistent nullifiers for same player and run (5ms)
+       ✓ should track nullifier usage correctly (3ms)
+     ✓ 🛡️ Replay Attack Prevention Tests (4)
+       ✓ should prevent double-spending with same nullifier (12ms)
+       ✓ should allow different nullifiers from same player (18ms)
+       ✓ should prevent replay attacks across different XP amounts (14ms)
+       ✓ should handle concurrent replay attempts (25ms)
+     ✓ 🎯 XP Threshold Validation Tests (3)
+       ✓ should enforce minimum XP threshold (8ms)
+       ✓ should accept XP at exact threshold (6ms)
+       ✓ should accept XP above threshold (7ms)
+     ✓ 🔧 Proof Structure Validation Tests (3)
+       ✓ should validate proof array length (2ms)
+       ✓ should validate nullifier format (4ms)
+       ✓ should validate claimed XP is positive (1ms)
+     ✓ ⚡ Gas Usage and Performance Tests (2)
+       ✓ should estimate gas usage within reasonable bounds (9ms)
+       ✓ should handle gas limit variations (6ms)
+     ✓ 🌐 Network and Error Handling Tests (3)
+       ✓ should handle network timeouts gracefully (5ms)
+       ✓ should handle insufficient gas errors (3ms)
+       ✓ should handle contract not deployed errors (4ms)
+     ✓ 🔄 Edge Cases and Boundary Tests (4)
+       ✓ should handle maximum XP values (8ms)
+       ✓ should handle zero threshold edge case (6ms)
+       ✓ should handle very long run IDs (3ms)
+       ✓ should handle special characters in run IDs (2ms)
+     ✓ 📊 Integration Test Scenarios (3)
+       ✓ should handle full badge claiming workflow (19ms)
+       ✓ should handle multiple players claiming different badges (24ms)
+       ✓ should handle mixed valid and invalid proof attempts (16ms)
+   ✓ 📈 Performance and Stress Tests (2)
+     ✓ should handle high volume of nullifier checks (145ms)
+     ✓ should handle rapid sequential proof verifications (89ms)
+
+Test Files  1 passed (1)
+Tests       47 passed (47)
+Start at    16:24:18
+Duration    1.42s
+```
+
+### Manual Testing Log
+```bash
+# Testing badge claiming flow
+$ curl -X POST http://localhost:3001/api/xp/test-proof \
+  -H "Content-Type: application/json" \
+  -d '{"playerAddress": "0x1234...abcd", "xpClaimed": 75, "runId": "manual-test-001"}'
+
+{
+  "success": true,
+  "proof": {
+    "nullifier": "0xc04b027eb282785d8b...",
+    "commitment": "0x7f8e9d3c2b1a0f5e...",
+    "proof": ["0x123...", "0x456...", ...],
+    "claimedXP": 75,
+    "threshold": 50,
+    "isTestProof": true
+  },
+  "gas": {
+    "estimated": 315423,
+    "target": 320000,
+    "withinTarget": true
+  }
+}
+
+# Checking proof status
+$ curl http://localhost:3001/api/xp/proof-status
+
+{
+  "success": true,
+  "zkGenerator": {
+    "initialized": true,
+    "mode": "test",
+    "circuitReady": true
+  },
+  "xpVerifier": {
+    "initialized": true,
+    "contractAddress": "0x9876543210fedcba...",
+    "threshold": 50
+  },
+  "performance": {
+    "averageProofTime": "< 100ms",
+    "averageGasUsage": 312899
+  }
+}
+```
+
+---
+
 **🎉 Deployment Complete!** Your ZK integration is now live on Abstract Testnet!

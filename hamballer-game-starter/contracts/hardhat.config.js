@@ -28,10 +28,16 @@ module.exports = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11124, // Abstract testnet chain ID
     },
+    abstractMainnet: {
+      url: process.env.ABSTRACT_MAINNET_RPC_URL || "https://api.mainnet.abs.xyz",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 2741, // Abstract mainnet chain ID
+    },
   },
   etherscan: {
     apiKey: {
       abstract: process.env.ETHERSCAN_API_KEY || "",
+      abstractMainnet: process.env.ETHERSCAN_API_KEY || "",
     },
     customChains: [
       {
@@ -40,6 +46,14 @@ module.exports = {
         urls: {
           apiURL: "https://api-testnet.abs.xyz/api",
           browserURL: "https://explorer.testnet.abs.xyz",
+        },
+      },
+      {
+        network: "abstractMainnet",
+        chainId: 2741,
+        urls: {
+          apiURL: "https://api.mainnet.abs.xyz/api",
+          browserURL: "https://explorer.mainnet.abs.xyz",
         },
       },
     ],
