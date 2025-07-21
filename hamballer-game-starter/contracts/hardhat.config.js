@@ -55,10 +55,19 @@ module.exports = {
       gasPrice: parseInt(process.env.GAS_PRICE || "1000000000"),
       gas: parseInt(process.env.GAS_LIMIT || "8000000"),
     },
+    // TODO: Mainnet deployment configuration for Phase 9
+    abstractMainnet: {
+      url: process.env.ABSTRACT_MAINNET_RPC_URL || "https://api.mainnet.abs.xyz",
+      chainId: 2741,
+      accounts: [deployerPrivateKey],
+      gasPrice: parseInt(process.env.MAINNET_GAS_PRICE || "1000000000"),
+      gas: parseInt(process.env.MAINNET_GAS_LIMIT || "8000000"),
+    },
   },
   etherscan: {
     apiKey: {
       abstract: ETHERSCAN_API_KEY || "",
+      abstractMainnet: ETHERSCAN_API_KEY || "",
     },
     customChains: [
       {
@@ -69,11 +78,25 @@ module.exports = {
           browserURL: "https://explorer.testnet.abs.xyz",
         },
       },
+      {
+        network: "abstractMainnet",
+        chainId: 2741,
+        urls: {
+          apiURL: "https://api.mainnet.abs.xyz/api",
+          browserURL: "https://explorer.mainnet.abs.xyz",
+        },
+      },
     ],
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
+    gasPrice: 1,
+    showMethodSig: true,
+    showTimeSpent: true,
+    excludeContracts: [],
+    src: "./contracts/",
+    outputFile: "gas-report.txt",
   },
   mocha: {
     timeout: 40000,

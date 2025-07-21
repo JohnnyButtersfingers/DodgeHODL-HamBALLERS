@@ -33,6 +33,8 @@ const ClaimBadge = () => {
   const [claiming, setClaiming] = useState({});
   const [retrying, setRetrying] = useState({});
   const [showDevPanel, setShowDevPanel] = useState(false);
+  const [proofGenerating, setProofGenerating] = useState({});
+  const [errorStates, setErrorStates] = useState({});
 
   useEffect(() => {
     if (address) {
@@ -133,6 +135,8 @@ const ClaimBadge = () => {
       return;
     }
 
+    // Clear any previous error states
+    setErrorStates(prev => ({ ...prev, [badge.id]: null }));
     setClaiming(prev => ({ ...prev, [badge.id]: true }));
     
     try {
@@ -141,6 +145,7 @@ const ClaimBadge = () => {
       if (contracts?.xpVerifier && (badge.requiresProof || badge.xpEarned >= 50)) {
         try {
           console.log('🔐 Generating ZK proof for XP verification...');
+          setProofGenerating(prev => ({ ...prev, [badge.id]: true }));
           
           // Log proof attempt
           await zkLogger.logProofAttempt({
@@ -168,13 +173,23 @@ const ClaimBadge = () => {
         } catch (proofError) {
           console.warn('⚠️ ZK proof generation failed:', proofError.message);
           
-                     // Log proof failure with specific error handling
-           await zkLogger.logProofFailure({
-             playerAddress: address,
-             claimedXP: badge.xpEarned,
-             error: proofError.message,
-             errorType: classifyProofError(proofError)
-           });
+          // Log proof failure with specific error handling
+          await zkLogger.logProofFailure({
+            playerAddress: address,
+            claimedXP: badge.xpEarned,
+            error: proofError.message,
+            errorType: classifyProofError(proofError)
+          });
+          
+          // Set error state for UI display
+          setErrorStates(prev => ({ 
+            ...prev, 
+            [badge.id]: {
+              type: 'proof_generation',
+              message: proofError.message,
+              details: proofError.cause?.message || 'Unknown error occurred during proof generation'
+            }
+          }));
           
           // Handle specific error types with appropriate UX
           if (proofError.message.includes('nullifier')) {
@@ -186,6 +201,16 @@ const ClaimBadge = () => {
           } else if (proofError.message.includes('invalid')) {
             showInvalidProof(proofError.message);
             return;
+          } else if (proofError.message.includes('network') || proofError.message.includes('fetch')) {
+            setErrorStates(prev => ({ 
+              ...prev, 
+              [badge.id]: {
+                type: 'network_error',
+                message: 'Network connection failed. Please check your internet connection and try again.',
+                details: 'Retry with updated XP data'
+              }
+            }));
+            return;
           }
           
           // Continue without verification for lower XP amounts
@@ -193,6 +218,8 @@ const ClaimBadge = () => {
             showNotEligible(100, badge.xpEarned);
             return;
           }
+        } finally {
+          setProofGenerating(prev => ({ ...prev, [badge.id]: false }));
         }
       }
 
@@ -496,12 +523,24 @@ const ClaimBadge = () => {
                   </div>
                   
                   <div className="badge-actions flex-shrink-0">
+                    {/* Error State Display */}
+                    {errorStates[badge.id] && (
+                      <div className="mb-2 p-2 bg-red-900/30 border border-red-500/50 rounded text-xs text-red-300">
+                        <div className="font-semibold">{errorStates[badge.id].message}</div>
+                        <div className="text-red-400">{errorStates[badge.id].details}</div>
+                      </div>
+                    )}
+                    
                     <button
                       onClick={() => claimBadge(badge)}
-                      disabled={claiming[badge.id]}
-                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus"
+                      disabled={claiming[badge.id] || proofGenerating[badge.id]}
+                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus flex items-center space-x-2"
                     >
-                      {claiming[badge.id] ? 'Claiming...' : 'Claim Badge'}
+                      {proofGenerating[badge.id] && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      )}
+                      {claiming[badge.id] ? 'Claiming...' : 
+                       proofGenerating[badge.id] ? 'Generating Proof...' : 'Claim Badge'}
                     </button>
                   </div>
                 </div>

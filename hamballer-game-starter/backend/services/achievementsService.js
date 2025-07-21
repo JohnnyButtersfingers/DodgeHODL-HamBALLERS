@@ -55,20 +55,55 @@ class AchievementsService extends EventEmitter {
    * Load all achievement types into memory cache
    */
   async loadAchievementTypes() {
-    const { data: achievementTypes, error } = await db
-      .from('achievement_types')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
+    try {
+      // Add timeout and retry logic for database queries
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database query timeout')), 30000); // 30s timeout
+      });
 
-    if (error) throw error;
+      const queryPromise = db
+        .from('achievement_types')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
 
-    this.achievementTypes.clear();
-    achievementTypes.forEach(type => {
-      this.achievementTypes.set(type.id, type);
-    });
+      const { data: achievementTypes, error } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]);
 
-    console.log(`📋 Loaded ${achievementTypes.length} achievement types`);
+      if (error) {
+        console.error('❌ Database query error:', error.message);
+        if (error.cause) {
+          console.error('   Cause:', error.cause.message);
+        }
+        console.error('   Stack:', error.stack);
+        throw error;
+      }
+
+      this.achievementTypes.clear();
+      achievementTypes.forEach(type => {
+        this.achievementTypes.set(type.id, type);
+      });
+
+      console.log(`📋 Loaded ${achievementTypes.length} achievement types`);
+    } catch (error) {
+      console.error('❌ Failed to load achievement types:', error.message);
+      if (error.cause) {
+        console.error('   Cause:', error.cause.message);
+      }
+      console.error('   Stack:', error.stack);
+      
+      // Log detailed error information for debugging
+      console.error('🔍 Error details:', {
+        message: error.message,
+        cause: error.cause?.message,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+        timestamp: new Date().toISOString()
+      });
+      
+      throw error;
+    }
   }
 
   /**

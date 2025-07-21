@@ -31,36 +31,96 @@ class XPVerifierService {
   }
 
   /**
-   * Initialize the XPVerifier service
+   * Initialize the XPVerifier service with RPC fallback
    */
   async initialize() {
     try {
-      const rpcUrl = process.env.ABSTRACT_RPC_URL;
+      // RPC fallback configuration
+      const rpcUrls = [
+        process.env.ABSTRACT_RPC_URL,
+        process.env.ABSTRACT_RPC_FALLBACK || "https://rpc.abstract.xyz",
+        "https://api.testnet.abs.xyz"
+      ].filter(Boolean);
+
       const xpVerifierAddress = process.env.XPVERIFIER_ADDRESS;
       const privateKey = process.env.XPVERIFIER_PRIVATE_KEY;
 
-      if (!rpcUrl || !xpVerifierAddress || !privateKey) {
+      if (!rpcUrls.length || !xpVerifierAddress || !privateKey) {
         console.warn('⚠️ XPVerifierService: Missing configuration - ZK-proof verification disabled');
+        console.error('🔍 Missing config:', {
+          rpcUrls: rpcUrls.length,
+          xpVerifierAddress: !!xpVerifierAddress,
+          privateKey: !!privateKey
+        });
         return false;
       }
 
-      // Initialize provider and signer
-      this.provider = new ethers.JsonRpcProvider(rpcUrl);
-      this.signer = new ethers.Wallet(privateKey, this.provider);
-      this.xpVerifierContract = new ethers.Contract(xpVerifierAddress, XPVERIFIER_ABI, this.signer);
+      // Try to connect to RPC endpoints with fallback
+      let connected = false;
+      let lastError = null;
 
-      // Test contract connection
-      const currentThreshold = await this.xpVerifierContract.getThreshold();
-      
+      for (const rpcUrl of rpcUrls) {
+        try {
+          console.log(`🔗 Attempting to connect to RPC: ${rpcUrl}`);
+          
+          // Initialize provider with timeout
+          this.provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
+            timeout: 30000 // 30s timeout
+          });
+          
+          // Test connection
+          await this.provider.getNetwork();
+          
+          this.signer = new ethers.Wallet(privateKey, this.provider);
+          this.xpVerifierContract = new ethers.Contract(xpVerifierAddress, XPVERIFIER_ABI, this.signer);
+
+          // Test contract connection
+          const currentThreshold = await this.xpVerifierContract.getThreshold();
+          
+          connected = true;
+          console.log('✅ XPVerifierService initialized successfully');
+          console.log(`📍 XPVerifier Contract: ${xpVerifierAddress}`);
+          console.log(`🔑 Verifier Address: ${this.signer.address}`);
+          console.log(`🎯 Current Threshold: ${currentThreshold.toString()}`);
+          console.log(`🌐 Connected to RPC: ${rpcUrl}`);
+          
+          break;
+        } catch (error) {
+          lastError = error;
+          console.warn(`⚠️ Failed to connect to RPC ${rpcUrl}:`, error.message);
+          if (error.cause) {
+            console.warn('   Cause:', error.cause.message);
+          }
+          continue;
+        }
+      }
+
+      if (!connected) {
+        console.error('❌ XPVerifierService: Failed to connect to any RPC endpoint');
+        if (lastError) {
+          console.error('   Last error:', lastError.message);
+          console.error('   Stack:', lastError.stack);
+        }
+        return false;
+      }
+
       this.initialized = true;
-      console.log('✅ XPVerifierService initialized');
-      console.log(`📍 XPVerifier Contract: ${xpVerifierAddress}`);
-      console.log(`🔑 Verifier Address: ${this.signer.address}`);
-      console.log(`🎯 Current Threshold: ${currentThreshold.toString()}`);
-
       return true;
     } catch (error) {
       console.error('❌ XPVerifierService initialization failed:', error.message);
+      if (error.cause) {
+        console.error('   Cause:', error.cause.message);
+      }
+      console.error('   Stack:', error.stack);
+      
+      // Log detailed error information for debugging
+      console.error('🔍 Error details:', {
+        message: error.message,
+        cause: error.cause?.message,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+        timestamp: new Date().toISOString()
+      });
+      
       return false;
     }
   }
