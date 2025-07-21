@@ -50,7 +50,14 @@ module.exports = {
     },
     abstract: {
       url: rpcUrl,
-      chainId: 11124,
+      chainId: 11124, // Abstract Testnet
+      accounts: [deployerPrivateKey],
+      gasPrice: parseInt(process.env.GAS_PRICE || "1000000000"),
+      gas: parseInt(process.env.GAS_LIMIT || "8000000"),
+    },
+    abstractMainnet: {
+      url: process.env.ABSTRACT_MAINNET_RPC_URL || "https://rpc.abs.xyz",
+      chainId: 2741, // Abstract Mainnet
       accounts: [deployerPrivateKey],
       gasPrice: parseInt(process.env.GAS_PRICE || "1000000000"),
       gas: parseInt(process.env.GAS_LIMIT || "8000000"),
@@ -59,6 +66,7 @@ module.exports = {
   etherscan: {
     apiKey: {
       abstract: ETHERSCAN_API_KEY || "",
+      abstractMainnet: ETHERSCAN_API_KEY || "",
     },
     customChains: [
       {
@@ -67,6 +75,14 @@ module.exports = {
         urls: {
           apiURL: "https://api-testnet.abs.xyz/api",
           browserURL: "https://explorer.testnet.abs.xyz",
+        },
+      },
+      {
+        network: "abstractMainnet",
+        chainId: 2741,
+        urls: {
+          apiURL: "https://api.abs.xyz/api",
+          browserURL: "https://explorer.abs.xyz",
         },
       },
     ],
