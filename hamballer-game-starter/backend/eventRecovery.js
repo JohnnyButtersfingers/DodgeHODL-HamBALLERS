@@ -21,7 +21,7 @@ class EventRecovery {
    */
   async initialize() {
     try {
-      const rpcUrl = process.env.ABSTRACT_RPC_URL;
+      const rpcUrl = process.env.ABSTRACT_RPC_URL || 'https://api.testnet.abs.xyz';
       const hodlManagerAddress = process.env.HODL_MANAGER_ADDRESS;
 
       if (!rpcUrl || !hodlManagerAddress) {
@@ -29,8 +29,28 @@ class EventRecovery {
         return false;
       }
 
-      // Initialize provider and contract
-      this.provider = new ethers.JsonRpcProvider(rpcUrl);
+      // Initialize provider with fallback and timeout
+      try {
+        this.provider = new ethers.JsonRpcProvider(rpcUrl);
+        // Test connection with timeout
+        await Promise.race([
+          this.provider.getBlockNumber(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('RPC connection timeout')), 10000))
+        ]);
+      } catch (providerError) {
+        console.warn(`⚠️ Primary RPC failed, trying fallback: ${providerError.message}`);
+        try {
+          this.provider = new ethers.JsonRpcProvider('https://rpc.abstract.xyz');
+          await Promise.race([
+            this.provider.getBlockNumber(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Fallback RPC timeout')), 10000))
+          ]);
+        } catch (fallbackError) {
+          console.error('❌ Both RPC endpoints failed:', fallbackError.message);
+          throw fallbackError;
+        }
+      }
+      
       this.hodlManagerContract = new ethers.Contract(hodlManagerAddress, HODL_MANAGER_ABI, this.provider);
 
       this.isInitialized = true;
@@ -40,6 +60,8 @@ class EventRecovery {
       return true;
     } catch (error) {
       console.error('❌ EventRecovery initialization failed:', error.message);
+      console.error('Stack trace:', error.stack);
+      console.error('Error cause:', error.cause);
       return false;
     }
   }

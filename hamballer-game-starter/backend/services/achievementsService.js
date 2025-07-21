@@ -525,11 +525,28 @@ class AchievementsService extends EventEmitter {
 
       if (progressError) throw progressError;
 
-      // Get achievement summary
-      const { data: summary, error: summaryError } = await db
+      // Get achievement summary with timeout
+      const summaryPromise = db
         .rpc('get_player_achievement_summary', { player_addr: playerAddress.toLowerCase() });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RPC call timeout after 30s')), 30000)
+      );
+      
+      const { data: summary, error: summaryError } = await Promise.race([
+        summaryPromise,
+        timeoutPromise
+      ]);
 
-      if (summaryError) throw summaryError;
+      if (summaryError) {
+        console.error('RPC error details:', {
+          message: summaryError.message,
+          code: summaryError.code,
+          details: summaryError.details,
+          cause: summaryError.cause
+        });
+        throw summaryError;
+      }
 
       return {
         unlocked: unlockedAchievements || [],

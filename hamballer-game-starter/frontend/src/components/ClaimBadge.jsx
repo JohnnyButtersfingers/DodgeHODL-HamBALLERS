@@ -33,6 +33,7 @@ const ClaimBadge = () => {
   const [claiming, setClaiming] = useState({});
   const [retrying, setRetrying] = useState({});
   const [showDevPanel, setShowDevPanel] = useState(false);
+  const [proofGenerating, setProofGenerating] = useState({});
 
   useEffect(() => {
     if (address) {
@@ -141,6 +142,7 @@ const ClaimBadge = () => {
       if (contracts?.xpVerifier && (badge.requiresProof || badge.xpEarned >= 50)) {
         try {
           console.log('🔐 Generating ZK proof for XP verification...');
+          setProofGenerating(prev => ({ ...prev, [badge.id]: true }));
           
           // Log proof attempt
           await zkLogger.logProofAttempt({
@@ -165,7 +167,9 @@ const ClaimBadge = () => {
           });
           
           console.log('✅ ZK proof generated successfully');
+          setProofGenerating(prev => ({ ...prev, [badge.id]: false }));
         } catch (proofError) {
+          setProofGenerating(prev => ({ ...prev, [badge.id]: false }));
           console.warn('⚠️ ZK proof generation failed:', proofError.message);
           
                      // Log proof failure with specific error handling
@@ -179,18 +183,26 @@ const ClaimBadge = () => {
           // Handle specific error types with appropriate UX
           if (proofError.message.includes('nullifier')) {
             showNullifierReused(proofError.nullifier || 'unknown');
+            setClaiming(prev => ({ ...prev, [badge.id]: false }));
             return;
           } else if (proofError.message.includes('timeout')) {
             showProofTimeout();
+            setClaiming(prev => ({ ...prev, [badge.id]: false }));
             return;
           } else if (proofError.message.includes('invalid')) {
-            showInvalidProof(proofError.message);
+            showInvalidProof(`Invalid proof: Please retry with updated XP data`);
+            setClaiming(prev => ({ ...prev, [badge.id]: false }));
+            return;
+          } else if (proofError.message.includes('insufficient')) {
+            showNotEligible(badge.xpEarned, `Minimum XP required for verification`);
+            setClaiming(prev => ({ ...prev, [badge.id]: false }));
             return;
           }
           
           // Continue without verification for lower XP amounts
           if (badge.xpEarned >= 100) {
             showNotEligible(100, badge.xpEarned);
+            setClaiming(prev => ({ ...prev, [badge.id]: false }));
             return;
           }
         }
@@ -498,10 +510,26 @@ const ClaimBadge = () => {
                   <div className="badge-actions flex-shrink-0">
                     <button
                       onClick={() => claimBadge(badge)}
-                      disabled={claiming[badge.id]}
-                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus"
+                      disabled={claiming[badge.id] || proofGenerating[badge.id]}
+                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus relative"
                     >
-                      {claiming[badge.id] ? 'Claiming...' : 'Claim Badge'}
+                      {proofGenerating[badge.id] ? (
+                        <div className="flex items-center space-x-2">
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Generating Proof...</span>
+                        </div>
+                      ) : claiming[badge.id] ? (
+                        <div className="flex items-center space-x-2">
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Claiming...</span>
+                        </div>
+                      ) : 'Claim Badge'}
                     </button>
                   </div>
                 </div>

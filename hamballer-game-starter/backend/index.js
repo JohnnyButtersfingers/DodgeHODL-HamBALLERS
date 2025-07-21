@@ -3,6 +3,13 @@ const { fetch: undiciFetch } = require('undici');
 global.fetch = undiciFetch;
 console.log('✅ Undici fetch overridden globally');
 
+// Configure axios globally for better timeout handling
+const axios = require('axios');
+axios.defaults.timeout = 60000; // 60 seconds global timeout
+axios.defaults.retry = 3;
+axios.defaults.retryDelay = 1000;
+console.log('✅ Axios configured with 60s timeout');
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
