@@ -3,6 +3,15 @@ const { db } = require('./config/database');
 const { xpVerifierService } = require('./services/xpVerifierService');
 const { achievementsService } = require('./services/achievementsService');
 
+// Import Thirdweb service
+let thirdwebService;
+try {
+  thirdwebService = require('./services/thirdwebService');
+} catch (error) {
+  console.warn('⚠️ Thirdweb service not available for retry queue:', error.message);
+  thirdwebService = null;
+}
+
 // Retry configuration
 const RETRY_CONFIG = {
   maxRetries: 5,
@@ -387,45 +396,74 @@ class RetryQueue {
       console.log(`   └─ Badge: ${attempt.xpEarned} XP → TokenId ${attempt.tokenId} (Season ${attempt.season})`);
       console.log(`   └─ Attempt: ${attempt.retryCount + 1}/${RETRY_CONFIG.maxRetries + 1}`);
 
-      // Check gas price and estimate gas
-      const gasPrice = await this.provider.getFeeData();
-      const gasEstimate = await this.xpBadgeContract.mintBadge.estimateGas(
-        attempt.playerAddress,
-        attempt.tokenId,
-        attempt.xpEarned,
-        attempt.season
-      );
-
-      // Execute the minting transaction
-      const tx = await this.xpBadgeContract.mintBadge(
-        attempt.playerAddress,
-        attempt.tokenId,
-        attempt.xpEarned,
-        attempt.season,
-        {
-          gasLimit: gasEstimate + BigInt(50000), // Add buffer
-          gasPrice: gasPrice.gasPrice
-        }
-      );
-
-      console.log(`⏳ RetryQueue: Badge mint transaction sent: ${tx.hash}`);
-
-      // Wait for confirmation
-      const receipt = await tx.wait(2); // Wait for 2 confirmations
-      
-      if (receipt.status === 1) {
+      // Use Thirdweb if available, otherwise fallback to ethers
+      if (thirdwebService && thirdwebService.isInitialized()) {
+        console.log('   Using Thirdweb service for minting...');
+        
+        const result = await thirdwebService.mintBadge(
+          attempt.playerAddress, 
+          attempt.tokenId, 
+          attempt.xpEarned, 
+          attempt.season
+        );
+        
+        console.log(`✅ RetryQueue: Badge minted via Thirdweb: ${result.transactionHash}`);
         return {
           success: true,
-          txHash: tx.hash,
-          blockNumber: receipt.blockNumber,
-          gasUsed: receipt.gasUsed.toString()
+          txHash: result.transactionHash,
+          tokenId: result.tokenId
         };
       } else {
-        throw new Error('Transaction failed');
+        console.log('   Using fallback ethers for minting...');
+        
+        // Fallback to ethers implementation
+        if (!this.xpBadgeContract) {
+          throw new Error('XPBadge contract not available');
+        }
+
+        // Check gas price and estimate gas
+        const gasPrice = await this.provider.getFeeData();
+        const gasEstimate = await this.xpBadgeContract.mintBadge.estimateGas(
+          attempt.playerAddress,
+          attempt.tokenId,
+          attempt.xpEarned,
+          attempt.season
+        );
+
+        // Execute the minting transaction
+        const tx = await this.xpBadgeContract.mintBadge(
+          attempt.playerAddress,
+          attempt.tokenId,
+          attempt.xpEarned,
+          attempt.season,
+          {
+            gasLimit: gasEstimate + BigInt(50000), // Add buffer
+            gasPrice: gasPrice.gasPrice
+          }
+        );
+
+        console.log(`⏳ RetryQueue: Badge mint transaction sent: ${tx.hash}`);
+
+        // Wait for confirmation
+        const receipt = await tx.wait(2); // Wait for 2 confirmations
+        
+        if (receipt.status === 1) {
+          return {
+            success: true,
+            txHash: tx.hash,
+            blockNumber: receipt.blockNumber,
+            gasUsed: receipt.gasUsed.toString()
+          };
+        } else {
+          throw new Error('Transaction failed');
+        }
       }
 
     } catch (error) {
       console.error(`❌ RetryQueue: Badge mint failed for ${attempt.playerAddress}:`, error.message);
+      if (error.cause) {
+        console.error('   Cause:', error.cause);
+      }
       
       return {
         success: false,

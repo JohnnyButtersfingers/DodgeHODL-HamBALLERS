@@ -142,7 +142,9 @@ router.get('/:wallet', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error fetching badges for wallet:', error);
+    console.error('❌ Error fetching badges for wallet:', error.message);
+    console.error('   Stack trace:', error.stack);
+    console.error('   Cause:', error.cause);
     res.status(500).json({
       error: 'Failed to fetch badge data',
       code: 'BADGE_FETCH_ERROR',
@@ -283,7 +285,9 @@ router.get('/:wallet/claim-status', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error fetching badge claim status for wallet:', error);
+    console.error('❌ Error fetching badge claim status for wallet:', error.message);
+    console.error('   Stack trace:', error.stack);
+    console.error('   Cause:', error.cause);
     res.status(500).json({
       error: 'Failed to fetch badge claim status',
       code: 'CLAIM_STATUS_FETCH_ERROR',

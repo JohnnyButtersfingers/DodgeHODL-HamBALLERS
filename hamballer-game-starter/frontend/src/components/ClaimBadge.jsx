@@ -531,76 +531,77 @@ const ClaimBadge = () => {
               
               return (
                 <div key={badge.id} className="badge-list-item">
-                  <div className="badge-info flex items-start space-x-3 flex-1">
-                    <div className="relative flex-shrink-0">
-                      <div className={`text-2xl sm:text-3xl ${isUnclaimable ? 'opacity-30' : 'opacity-50'}`}>
-                        {badgeType.emoji}
-                      </div>
-                      {isUnclaimable && (
-                        <div className="absolute -top-1 -right-1 text-red-500 text-sm sm:text-lg">❌</div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center space-x-2 flex-wrap">
-                        <div className={`font-semibold ${badgeType.color} ${isUnclaimable ? 'opacity-50' : ''} responsive-text-lg`}>
-                          {badgeType.name} Badge
+                  <>
+                    <div className="badge-info flex items-start space-x-3 flex-1">
+                      <div className="relative flex-shrink-0">
+                        <div className={`text-2xl sm:text-3xl ${isUnclaimable ? 'opacity-30' : 'opacity-50'}`}>
+                          {badgeType.emoji}
                         </div>
                         {isUnclaimable && (
-                          <div 
-                            className="text-red-400 text-xs sm:text-sm font-medium cursor-help"
-                            title="Retry limit reached. Contact support or refresh your run."
-                          >
-                            (Unclaimable)
-                          </div>
+                          <div className="absolute -top-1 -right-1 text-red-500 text-sm sm:text-lg">❌</div>
                         )}
                       </div>
-                      <div className="text-sm text-gray-400">
-                        {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Run: {badge.runId} • Season {badge.season}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="badge-actions flex-shrink-0">
-                    {canRetry ? (
-                      <button
-                        onClick={() => retryBadgeClaim(badge)}
-                        disabled={retrying[badge.id]}
-                        className="mobile-button-sm bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black rounded text-sm transition-colors mobile-focus"
-                      >
-                        {retrying[badge.id] ? 'Retrying...' : 'Retry'}
-                      </button>
-                    ) : (
-                      <div 
-                        className="mobile-button-sm bg-red-600/30 text-red-300 rounded text-sm cursor-help pointer-events-none"
-                        title="Retry limit reached. Contact support or refresh your run."
-                      >
-                          Max Retries
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center space-x-2 flex-wrap">
+                          <div className={`font-semibold ${badgeType.color} ${isUnclaimable ? 'opacity-50' : ''} responsive-text-lg`}>
+                            {badgeType.name} Badge
+                          </div>
+                          {isUnclaimable && (
+                            <div 
+                              className="text-red-400 text-xs sm:text-sm font-medium cursor-help"
+                              title="Retry limit reached. Contact support or refresh your run."
+                            >
+                              (Unclaimable)
+                            </div>
+                          )}
                         </div>
-                      )}
-                      
-                      <button
-                        onClick={() => abandonBadge(badge.id)}
-                        className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                      >
-                        {isUnclaimable ? 'Dismiss' : 'Abandon'}
-                      </button>
+                        <div className="text-sm text-gray-400">
+                          {badge.xpEarned} XP earned • {getTimeSince(badge.createdAt)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Run: {badge.runId} • Season {badge.season}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className={`rounded p-3 ${isUnclaimable ? 'bg-red-900/50' : 'bg-red-900/30'}`}>
-                    <div className="text-sm text-red-400 mb-1">
-                      <strong>Error:</strong> {badge.failureReason || 'Unknown error'}
+                    
+                    <div className="badge-actions flex-shrink-0">
+                      {canRetry ? (
+                        <button
+                          onClick={() => retryBadgeClaim(badge)}
+                          disabled={retrying[badge.id]}
+                          className="mobile-button-sm bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black rounded text-sm transition-colors mobile-focus"
+                        >
+                          {retrying[badge.id] ? 'Retrying...' : 'Retry'}
+                        </button>
+                      ) : (
+                        <div 
+                          className="mobile-button-sm bg-red-600/30 text-red-300 rounded text-sm cursor-help pointer-events-none"
+                          title="Retry limit reached. Contact support or refresh your run."
+                        >
+                            Max Retries
+                          </div>
+                        )}
+                        
+                        <button
+                          onClick={() => abandonBadge(badge.id)}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          {isUnclaimable ? 'Dismiss' : 'Abandon'}
+                        </button>
                     </div>
-                    <div className="text-xs text-gray-400">
-                      Retry attempts: {badge.retryCount || 0}/5
-                      {isUnclaimable && (
-                        <span className="text-red-300"> • Contact support for assistance</span>
-                      )}
+                    
+                    <div className={`rounded p-3 ${isUnclaimable ? 'bg-red-900/50' : 'bg-red-900/30'}`}>
+                      <div className="text-sm text-red-400 mb-1">
+                        <strong>Error:</strong> {badge.failureReason || 'Unknown error'}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Retry attempts: {badge.retryCount || 0}/5
+                        {isUnclaimable && (
+                          <span className="text-red-300"> • Contact support for assistance</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </>
                 </div>
               );
             })}

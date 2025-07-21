@@ -8,8 +8,7 @@ process.env.HARDHAT_COMPILERS_DOWNLOAD = 'false';
 const { 
   ABS_WALLET_PRIVATE_KEY, 
   PRIVATE_KEY,
-  TESTNET_RPC_URL,
-  ABSTRACT_RPC_URL,
+  ABSTRACT_TESTNET_RPC_URL,
   ETHERSCAN_API_KEY 
 } = process.env;
 
@@ -23,7 +22,7 @@ if (!deployerPrivateKey) {
   process.exit(1);
 }
 
-const rpcUrl = TESTNET_RPC_URL || ABSTRACT_RPC_URL || "https://rpc.abstract.xyz";
+const rpcUrl = ABSTRACT_TESTNET_RPC_URL || "https://api.testnet.abs.xyz";
 
 console.log("🔧 Hardhat Configuration Loaded:");
 console.log(`   Network: Abstract Testnet`);
@@ -51,8 +50,8 @@ module.exports = {
     },
     abstract: {
       url: rpcUrl,
+      chainId: 11124,
       accounts: [deployerPrivateKey],
-      chainId: 11124, // Abstract testnet chain ID
       gasPrice: parseInt(process.env.GAS_PRICE || "1000000000"),
       gas: parseInt(process.env.GAS_LIMIT || "8000000"),
     },
