@@ -18,15 +18,35 @@ class AchievementsService extends EventEmitter {
         return false;
       }
 
-      await this.loadAchievementTypes();
-      this.initialized = true;
-      
-      console.log('✅ AchievementsService initialized');
-      console.log(`📋 Loaded ${this.achievementTypes.size} achievement types`);
-      
-      return true;
+      // Add better error handling for fetch issues
+      try {
+        await this.loadAchievementTypes();
+        this.initialized = true;
+        
+        console.log('✅ AchievementsService initialized');
+        console.log(`📋 Loaded ${this.achievementTypes.size} achievement types`);
+        
+        return true;
+      } catch (dbError) {
+        console.error('❌ AchievementsService database error:', dbError.message);
+        if (dbError.cause) {
+          console.error('   Cause:', dbError.cause.message);
+        }
+        console.error('   Stack:', dbError.stack);
+        console.error('   Fetch error details:', {
+          message: dbError.message,
+          cause: dbError.cause?.message,
+          stack: dbError.stack?.split('\n').slice(0, 5).join('\n')
+        });
+        console.warn('⚠️ AchievementsService: Using mock mode - limited functionality');
+        this.initialized = false;
+        return false;
+      }
     } catch (error) {
       console.error('❌ AchievementsService initialization failed:', error.message);
+      if (error.cause) {
+        console.error('   Cause:', error.cause.message);
+      }
       return false;
     }
   }

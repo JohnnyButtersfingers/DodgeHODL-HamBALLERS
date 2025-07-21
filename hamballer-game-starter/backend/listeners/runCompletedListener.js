@@ -22,6 +22,15 @@ let isInitialized = false;
 let mintingQueue = [];
 let isMinting = false;
 
+// Import Thirdweb service
+let thirdwebService;
+try {
+  thirdwebService = require('../services/thirdwebService');
+} catch (error) {
+  console.warn('⚠️ Thirdweb service not available, using fallback:', error.message);
+  thirdwebService = null;
+}
+
 /**
  * Initialize contracts and provider
  */
@@ -96,79 +105,56 @@ async function generateBadgeTokenId(xpEarned, season) {
 /**
  * Mint XPBadge NFT for player
  */
-async function mintXPBadge(playerAddress, xpEarned, season) {
+async function mintXPBadge(playerAddress, xpEarned, season = 1) {
   try {
-    console.log(`🎫 Attempting to mint XPBadge for ${playerAddress} (${xpEarned} XP, Season ${season})`);
-
-    const tokenId = await generateBadgeTokenId(xpEarned, season);
+    console.log(`🎫 Minting XP badge for ${playerAddress} (${xpEarned} XP, Season ${season})`);
     
-    // Check gas price and network status
-    const gasPrice = await provider.getFeeData();
-    console.log(`⛽ Current gas price: ${ethers.formatUnits(gasPrice.gasPrice, 'gwei')} gwei`);
-
-    // Estimate gas for the transaction
-    const gasEstimate = await xpBadgeContract.mintBadge.estimateGas(
-      playerAddress,
-      tokenId,
-      xpEarned,
-      season
-    );
-
-    console.log(`📊 Gas estimate: ${gasEstimate.toString()}`);
-
-    // Execute the minting transaction
-    const tx = await xpBadgeContract.mintBadge(
-      playerAddress,
-      tokenId,
-      xpEarned,
-      season,
-      {
-        gasLimit: gasEstimate + BigInt(50000), // Add buffer
-        gasPrice: gasPrice.gasPrice
+    // Use Thirdweb if available, otherwise fallback to ethers
+    if (thirdwebService && thirdwebService.isInitialized()) {
+      console.log('   Using Thirdweb service for minting...');
+      
+      const tokenId = await generateBadgeTokenId(xpEarned);
+      const result = await thirdwebService.mintBadge(playerAddress, tokenId, xpEarned, season);
+      
+      console.log('✅ Badge minted via Thirdweb:', result.transactionHash);
+      return {
+        success: true,
+        transactionHash: result.transactionHash,
+        tokenId: result.tokenId,
+        xp: result.xp,
+        season: result.season
+      };
+    } else {
+      console.log('   Using fallback ethers for minting...');
+      
+      // Fallback to existing ethers implementation
+      if (!contracts.xpBadge) {
+        throw new Error('XPBadge contract not available');
       }
-    );
 
-    console.log(`⏳ XPBadge mint transaction sent: ${tx.hash}`);
-
-    // Wait for confirmation
-    const receipt = await tx.wait(2); // Wait for 2 confirmations
-    
-    if (receipt.status === 1) {
-      console.log(`✅ XPBadge minted successfully for ${playerAddress}`);
-      console.log(`🎫 TokenId: ${tokenId}, XP: ${xpEarned}, Season: ${season}`);
-      console.log(`🧾 Transaction: ${tx.hash} (Block: ${receipt.blockNumber})`);
+      const tokenId = await generateBadgeTokenId(xpEarned);
+      const tx = await contracts.xpBadge.mintBadge(playerAddress, tokenId, xpEarned, season);
+      
+      console.log('   Transaction hash:', tx.hash);
+      console.log('   Waiting for confirmation...');
+      
+      const receipt = await tx.wait();
+      console.log('✅ Badge minted via ethers:', receipt.transactionHash);
       
       return {
         success: true,
-        tokenId,
-        txHash: tx.hash,
-        blockNumber: receipt.blockNumber,
-        gasUsed: receipt.gasUsed.toString()
+        transactionHash: receipt.transactionHash,
+        tokenId: tokenId,
+        xp: xpEarned,
+        season: season
       };
-    } else {
-      throw new Error('Transaction failed');
     }
-
   } catch (error) {
-    console.error(`❌ Failed to mint XPBadge for ${playerAddress}:`, error.message);
-    
-    // Log detailed error information
-    if (error.code) {
-      console.error(`Error code: ${error.code}`);
+    console.error('❌ Failed to mint XP badge:', error.message);
+    if (error.cause) {
+      console.error('   Cause:', error.cause);
     }
-    if (error.reason) {
-      console.error(`Error reason: ${error.reason}`);
-    }
-    if (error.transaction) {
-      console.error(`Failed transaction hash: ${error.transaction.hash}`);
-    }
-
-    return {
-      success: false,
-      error: error.message,
-      code: error.code,
-      reason: error.reason
-    };
+    throw error;
   }
 }
 
@@ -189,7 +175,7 @@ async function processMintingQueue() {
       
       // Update Supabase with tokenId if minting was successful
       if (result.success) {
-        await updateSupabaseWithBadge(playerAddress, result.tokenId, xpEarned, season, result.txHash, timestamp);
+        await updateSupabaseWithBadge(playerAddress, result.tokenId, xpEarned, season, result.transactionHash, timestamp);
       }
       
       // Small delay between mints to avoid overwhelming the network
@@ -364,16 +350,24 @@ async function listenRunCompleted() {
     return;
   }
 
-  // Set up event listener
-  hodlManagerContract.on('RunCompleted', handleRunCompletedEvent);
-  
-  // Handle listener errors
-  hodlManagerContract.on('error', (error) => {
-    console.error('❌ HODLManager contract listener error:', error);
-  });
-
-  console.log('✅ RunCompleted listener active');
-  console.log('🎫 XPBadge minting enabled');
+  // Set up event listener with error handling
+  try {
+    // Check if the contract has the RunCompleted event by looking at the ABI
+    const hasRunCompletedEvent = HODL_MANAGER_ABI.some(item => 
+      item.type === 'event' && item.name === 'RunCompleted'
+    );
+    
+    if (hasRunCompletedEvent) {
+      hodlManagerContract.on('RunCompleted', handleRunCompletedEvent);
+      console.log('✅ RunCompleted listener active');
+      console.log('🎫 XPBadge minting enabled');
+    } else {
+      console.log('⚠️ RunCompleted event not found in contract ABI - using polling fallback');
+    }
+  } catch (error) {
+    console.error('❌ Failed to set up RunCompleted listener:', error.message);
+    console.log('⚠️ Event listening disabled - using polling fallback');
+  }
 }
 
 /**

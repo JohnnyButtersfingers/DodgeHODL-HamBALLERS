@@ -1,3 +1,8 @@
+// Undici polyfill for fetch (fixes TLS/network issues)
+const { fetch: undiciFetch } = require('undici');
+global.fetch = undiciFetch;
+console.log('✅ Undici fetch overridden globally');
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -5,11 +10,24 @@ const morgan = require('morgan');
 const { WebSocketServer } = require('ws');
 const { createServer } = require('http');
 require('dotenv').config();
+
+// Database and blockchain imports
+const { db, contracts } = require('./config/database');
+
 const { listenRunCompleted } = require('./listeners/runCompletedListener');
 const { retryQueue } = require('./retryQueue');
 const { eventRecovery } = require('./eventRecovery');
 const { achievementsService } = require('./services/achievementsService');
 const { xpVerifierService } = require('./services/xpVerifierService');
+
+// Thirdweb service for contract interactions
+let thirdwebService;
+try {
+  thirdwebService = require('./services/thirdwebService');
+} catch (error) {
+  console.warn('⚠️ Thirdweb service not available:', error.message);
+  thirdwebService = null;
+}
 
 // Route imports
 const runRoutes = require('./routes/run');
@@ -291,6 +309,36 @@ server.listen(PORT, HOST, async () => {
   
   console.log('\n🔧 Initializing Phase 8 Systems...');
   
+  // Initialize Thirdweb service
+  if (thirdwebService) {
+    try {
+      await thirdwebService.initialize();
+      console.log('✅ Thirdweb service initialized');
+      
+      // Test Thirdweb contract connection
+      if (thirdwebService.isInitialized()) {
+        console.log('🔍 Testing Thirdweb contract connection...');
+        try {
+          const minterAddress = process.env.XPBADGE_MINTER_ADDRESS;
+          const hasRole = await thirdwebService.checkMinterRole(minterAddress);
+          console.log('✅ Thirdweb contract connection successful');
+          console.log(`🎫 MINTER_ROLE status: ${hasRole ? 'Active' : 'Inactive'} for ${minterAddress}`);
+        } catch (error) {
+          console.warn('⚠️ Thirdweb contract test failed:', error.message);
+          if (error.cause) {
+            console.warn('   Cause:', error.cause.message);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to initialize Thirdweb service:', error.message);
+      console.error('   Error details:', error.cause || 'No additional details');
+      console.error('   Stack:', error.stack?.split('\n').slice(0, 3).join('\n'));
+    }
+  } else {
+    console.log('⚠️ Thirdweb service not available - using fallback contract interactions');
+  }
+
   // Initialize achievements service
   try {
     const achievementsInitialized = await achievementsService.initialize();

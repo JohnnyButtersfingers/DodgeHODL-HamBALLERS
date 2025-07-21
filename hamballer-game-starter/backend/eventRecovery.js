@@ -68,8 +68,19 @@ class EventRecovery {
       const blocksToScan = currentBlock - lastProcessedBlock;
       console.log(`🔍 EventRecovery: Scanning ${blocksToScan} blocks (${lastProcessedBlock + 1} to ${currentBlock})`);
 
-      // Scan for missed RunCompleted events
-      const missedEvents = await this.scanForMissedEvents(lastProcessedBlock + 1, currentBlock);
+      // Scan for missed RunCompleted events with error handling
+      let missedEvents = [];
+      try {
+        missedEvents = await this.scanForMissedEvents(lastProcessedBlock + 1, currentBlock);
+      } catch (error) {
+        console.error('❌ EventRecovery: Failed to scan for missed events:', error.message);
+        if (error.code === 'UNKNOWN_ERROR' && error.error?.code === -32602) {
+          console.log('⚠️ RPC filter error - skipping event recovery');
+          await this.updateLastProcessedBlock(currentBlock);
+          return;
+        }
+        throw error;
+      }
       
       if (missedEvents.length === 0) {
         console.log('✅ EventRecovery: No missed RunCompleted events found');
@@ -92,6 +103,15 @@ class EventRecovery {
 
     } catch (error) {
       console.error('❌ EventRecovery: Failed to recover missed events:', error.message);
+      if (error.cause) {
+        console.error('   Cause:', error.cause.message);
+      }
+      console.error('   Stack:', error.stack);
+      console.error('   Fetch error details:', {
+        message: error.message,
+        cause: error.cause?.message,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      });
     } finally {
       this.recoveryInProgress = false;
     }
@@ -141,6 +161,10 @@ class EventRecovery {
 
     } catch (error) {
       console.error('❌ EventRecovery: Failed to get last processed block:', error.message);
+      if (error.cause) {
+        console.error('   Cause:', error.cause.message);
+      }
+      console.error('   Stack:', error.stack);
       // Default to scanning last 1000 blocks
       const currentBlock = await this.provider.getBlockNumber();
       return Math.max(0, currentBlock - 1000);
@@ -162,7 +186,7 @@ class EventRecovery {
         
         console.log(`🔍 EventRecovery: Scanning blocks ${start} to ${end}`);
         
-        try {
+                try {
           const events = await this.hodlManagerContract.queryFilter(
             'RunCompleted',
             start,
@@ -193,7 +217,11 @@ class EventRecovery {
           await new Promise(resolve => setTimeout(resolve, 100));
 
         } catch (error) {
-          console.warn(`⚠️ EventRecovery: Failed to scan blocks ${start}-${end}:`, error.message);
+          if (error.code === 'UNKNOWN_ERROR' && error.error?.code === -32602) {
+            console.warn(`⚠️ EventRecovery: RPC filter error for blocks ${start}-${end}, skipping`);
+          } else {
+            console.warn(`⚠️ EventRecovery: Failed to scan blocks ${start}-${end}:`, error.message);
+          }
           // Continue with next chunk
         }
       }

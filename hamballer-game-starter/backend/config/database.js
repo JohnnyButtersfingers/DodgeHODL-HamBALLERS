@@ -76,6 +76,82 @@ function initializeContracts() {
 
 // Database helper functions with fallbacks
 const db = {
+  // Mock from method for routes that use db.from() directly
+  from: (tableName) => {
+    if (!supabase) {
+      // Return a comprehensive mock query builder
+      const mockQueryBuilder = {
+        select: (columns = '*') => ({
+          eq: (column, value) => ({
+            is: (column2, value2) => ({
+              gte: (column3, value3) => ({
+                order: (column4, options = {}) => ({
+                  limit: (count) => Promise.resolve({ data: [], error: null })
+                })
+              })
+            }),
+            neq: (column2, value2) => ({
+              order: (column3, options = {}) => ({
+                limit: (count) => Promise.resolve({ data: [], error: null })
+              })
+            }),
+            order: (column2, options = {}) => ({
+              limit: (count) => Promise.resolve({ data: [], error: null })
+            }),
+            limit: (count) => Promise.resolve({ data: [], error: null }),
+            single: () => Promise.resolve({ data: null, error: null })
+          }),
+          in: (column, values) => ({
+            order: (column2, options = {}) => ({
+              limit: (count) => Promise.resolve({ data: [], error: null })
+            }),
+            limit: (count) => Promise.resolve({ data: [], error: null })
+          }),
+          lt: (column, value) => ({
+            order: (column2, options = {}) => ({
+              limit: (count) => Promise.resolve({ data: [], error: null })
+            }),
+            limit: (count) => Promise.resolve({ data: [], error: null })
+          }),
+          gte: (column, value) => ({
+            order: (column2, options = {}) => ({
+              limit: (count) => Promise.resolve({ data: [], error: null })
+            }),
+            limit: (count) => Promise.resolve({ data: [], error: null })
+          }),
+          order: (column, options = {}) => ({
+            limit: (count) => Promise.resolve({ data: [], error: null })
+          }),
+          limit: (count) => Promise.resolve({ data: [], error: null }),
+          single: () => Promise.resolve({ data: null, error: null })
+        }),
+        insert: (data) => ({
+          select: (columns = '*') => ({
+            single: () => Promise.resolve({ data: null, error: null })
+          })
+        }),
+        update: (data) => ({
+          eq: (column, value) => ({
+            select: (columns = '*') => ({
+              single: () => Promise.resolve({ data: null, error: null })
+            })
+          })
+        }),
+        delete: () => ({
+          eq: (column, value) => Promise.resolve({ data: null, error: null })
+        }),
+        upsert: (data) => ({
+          select: (columns = '*') => ({
+            single: () => Promise.resolve({ data: null, error: null })
+          })
+        })
+      };
+      
+      return mockQueryBuilder;
+    }
+    return supabase.from(tableName);
+  },
+  
   // Run logs table operations
   async createRunLog(runData) {
     if (!supabase) {

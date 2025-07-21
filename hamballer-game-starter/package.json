@@ -6,7 +6,7 @@
   "packageManager": "pnpm@8.10.0",
   "workspaces": [
     "contracts",
-    "backend", 
+    "backend",
     "frontend"
   ],
   "scripts": {
@@ -38,5 +38,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/hamballer/hamballer-xyz"
+  },
+  "dependencies": {
+    "axios": "^1.10.0",
+    "axios-curlirize": "^2.0.0"
   }
 }
