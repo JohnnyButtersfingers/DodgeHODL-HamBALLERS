@@ -279,6 +279,18 @@ const ClaimBadge = () => {
 
     setRetrying(prev => ({ ...prev, [badge.id]: true }));
     
+    // Exponential backoff calculation
+    const retryCount = (badge.retryCount || 0) + 1;
+    const backoffDelay = Math.min(1000 * Math.pow(2, retryCount - 1), 30000); // Max 30s delay
+    
+    // Show retry countdown if delay is significant
+    if (backoffDelay > 2000) {
+      console.log(`⏳ Retrying in ${backoffDelay / 1000}s with exponential backoff...`);
+    }
+    
+    // Apply backoff delay
+    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    
     try {
       const response = await apiFetch('/api/badges/retry', {
         method: 'POST',
@@ -291,7 +303,8 @@ const ClaimBadge = () => {
           tokenId: badge.tokenId,
           xpEarned: badge.xpEarned,
           season: badge.season,
-          runId: badge.runId
+          runId: badge.runId,
+          retryAttempt: retryCount
         }),
       });
 
@@ -300,7 +313,7 @@ const ClaimBadge = () => {
         if (result.success) {
           // Remove from failed badges
           setFailedBadges(prev => prev.filter(b => b.id !== badge.id));
-          console.log('Badge retry successful:', result.txHash);
+          console.log('✅ Badge retry successful:', result.txHash);
         } else {
           throw new Error(result.error || 'Retry failed');
         }
@@ -308,11 +321,28 @@ const ClaimBadge = () => {
         throw new Error('Retry request failed');
       }
     } catch (error) {
-      console.error('Error retrying badge claim:', error);
-      // Update retry count
+      console.error('❌ Error retrying badge claim:', error);
+      
+      // Provide privacy-preserving error messages
+      let userFriendlyError = 'Retry failed: Please try again later';
+      
+      if (error.message.includes('network') || error.message.includes('timeout')) {
+        userFriendlyError = 'Network timeout: Please check connection and retry';
+      } else if (error.message.includes('gas')) {
+        userFriendlyError = 'Transaction fee estimation failed: Please retry';
+      } else if (error.message.includes('invalid')) {
+        userFriendlyError = 'Invalid verification: Please refresh and retry';
+      }
+      
+      // Update retry count with privacy-preserving error
       setFailedBadges(prev => prev.map(b => 
         b.id === badge.id 
-          ? { ...b, retryCount: (b.retryCount || 0) + 1, failureReason: error.message }
+          ? { 
+              ...b, 
+              retryCount: retryCount,
+              failureReason: userFriendlyError,
+              lastRetryAt: new Date().toISOString()
+            }
           : b
       ));
     } finally {
@@ -515,19 +545,25 @@ const ClaimBadge = () => {
                     >
                       {proofGenerating[badge.id] ? (
                         <div className="flex items-center space-x-2">
-                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span>Generating Proof...</span>
+                          <div className="relative">
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <div className="absolute inset-0 rounded-full border-2 border-blue-400 border-t-transparent animate-spin opacity-50"></div>
+                          </div>
+                          <span className="text-sm">Generating Proof...</span>
                         </div>
                       ) : claiming[badge.id] ? (
                         <div className="flex items-center space-x-2">
-                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span>Claiming...</span>
+                          <div className="relative">
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <div className="absolute inset-0 rounded-full border-2 border-green-400 border-t-transparent animate-spin opacity-50"></div>
+                          </div>
+                          <span className="text-sm">Claiming...</span>
                         </div>
                       ) : 'Claim Badge'}
                     </button>
@@ -594,39 +630,85 @@ const ClaimBadge = () => {
                     
                     <div className="badge-actions flex-shrink-0">
                       {canRetry ? (
-                        <button
-                          onClick={() => retryBadgeClaim(badge)}
-                          disabled={retrying[badge.id]}
-                          className="mobile-button-sm bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black rounded text-sm transition-colors mobile-focus"
-                        >
-                          {retrying[badge.id] ? 'Retrying...' : 'Retry'}
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => retryBadgeClaim(badge)}
+                            disabled={retrying[badge.id]}
+                            className="mobile-button-sm bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black rounded text-sm transition-colors mobile-focus flex items-center space-x-1"
+                          >
+                            {retrying[badge.id] ? (
+                              <>
+                                <div className="relative">
+                                  <svg className="animate-spin h-3 w-3 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <div className="absolute inset-0 rounded-full border border-black border-t-transparent animate-spin opacity-30"></div>
+                                </div>
+                                <span>Retrying...</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span>Retry</span>
+                              </>
+                            )}
+                          </button>
+                          
+                          {(badge.retryCount || 0) > 0 && (
+                            <div className="text-xs text-yellow-400">
+                              Attempt {(badge.retryCount || 0) + 1}/5
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <div 
-                          className="mobile-button-sm bg-red-600/30 text-red-300 rounded text-sm cursor-help pointer-events-none"
-                          title="Retry limit reached. Contact support or refresh your run."
+                          className="mobile-button-sm bg-red-600/30 text-red-300 rounded text-sm cursor-help pointer-events-none flex items-center space-x-1"
+                          title="Maximum retry attempts reached. Contact support for assistance."
                         >
-                            Max Retries
-                          </div>
-                        )}
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Max Retries</span>
+                        </div>
+                      )}
                         
-                        <button
-                          onClick={() => abandonBadge(badge.id)}
-                          className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                        >
-                          {isUnclaimable ? 'Dismiss' : 'Abandon'}
-                        </button>
+                      <button
+                        onClick={() => abandonBadge(badge.id)}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors flex items-center space-x-1"
+                      >
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span>{isUnclaimable ? 'Dismiss' : 'Abandon'}</span>
+                      </button>
                     </div>
                     
-                    <div className={`rounded p-3 ${isUnclaimable ? 'bg-red-900/50' : 'bg-red-900/30'}`}>
-                      <div className="text-sm text-red-400 mb-1">
-                        <strong>Error:</strong> {badge.failureReason || 'Unknown error'}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        Retry attempts: {badge.retryCount || 0}/5
-                        {isUnclaimable && (
-                          <span className="text-red-300"> • Contact support for assistance</span>
-                        )}
+                    <div className={`rounded p-3 border-l-4 ${isUnclaimable ? 'bg-red-900/50 border-red-500' : 'bg-red-900/30 border-red-400'}`}>
+                      <div className="flex items-start space-x-2">
+                        <svg className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-red-400 mb-1">
+                            <strong>Error:</strong> {badge.failureReason || 'Unknown error occurred'}
+                          </div>
+                          <div className="text-xs text-gray-400 flex items-center justify-between">
+                            <span>Attempts: {badge.retryCount || 0}/5</span>
+                            {isUnclaimable && (
+                              <span className="text-red-300 text-xs">
+                                📞 Contact support for assistance
+                              </span>
+                            )}
+                          </div>
+                          {badge.lastRetryAt && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Last attempt: {getTimeSince(badge.lastRetryAt)}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </>
