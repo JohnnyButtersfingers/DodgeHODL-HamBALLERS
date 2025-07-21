@@ -18,35 +18,53 @@ class AchievementsService extends EventEmitter {
         return false;
       }
 
-      // Add better error handling for fetch issues
+      // Add better error handling for fetch issues with timeout
       try {
-        await this.loadAchievementTypes();
+        // Implement timeout for database operations
+        const loadPromise = this.loadAchievementTypes();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database timeout after 60s')), 60000)
+        );
+        
+        await Promise.race([loadPromise, timeoutPromise]);
         this.initialized = true;
         
         console.log('✅ AchievementsService initialized');
         console.log(`📋 Loaded ${this.achievementTypes.size} achievement types`);
+        console.log(`⏱️ Database timeout: 60s`);
         
         return true;
       } catch (dbError) {
         console.error('❌ AchievementsService database error:', dbError.message);
-        if (dbError.cause) {
-          console.error('   Cause:', dbError.cause.message);
-        }
-        console.error('   Stack:', dbError.stack);
-        console.error('   Fetch error details:', {
+        console.error('   Database error details:', {
           message: dbError.message,
           cause: dbError.cause?.message,
-          stack: dbError.stack?.split('\n').slice(0, 5).join('\n')
+          stack: dbError.stack?.split('\n').slice(0, 5).join('\n'),
+          isTimeout: dbError.message.includes('timeout'),
+          isFetchError: dbError.message.includes('fetch'),
+          isConnectionError: dbError.message.includes('connection') || dbError.message.includes('ECONNREFUSED')
         });
+        
+        // Provide specific guidance based on error type
+        if (dbError.message.includes('timeout')) {
+          console.error('   🔧 Timeout Fix: Check database connectivity and network latency');
+        } else if (dbError.message.includes('fetch')) {
+          console.error('   🔧 Fetch Fix: Verify database URL and authentication');
+        } else if (dbError.message.includes('connection')) {
+          console.error('   🔧 Connection Fix: Database may be down or unreachable');
+        }
+        
         console.warn('⚠️ AchievementsService: Using mock mode - limited functionality');
         this.initialized = false;
         return false;
       }
     } catch (error) {
       console.error('❌ AchievementsService initialization failed:', error.message);
-      if (error.cause) {
-        console.error('   Cause:', error.cause.message);
-      }
+      console.error('   Initialization error details:', {
+        message: error.message,
+        cause: error.cause?.message,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      });
       return false;
     }
   }

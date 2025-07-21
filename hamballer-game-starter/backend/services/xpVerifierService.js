@@ -28,6 +28,10 @@ class XPVerifierService {
     this.signer = null;
     this.initialized = false;
     this.proofQueue = new Map(); // Pending verifications
+    this.timeoutSettings = {
+      rpcTimeout: 60000, // 60 seconds
+      verificationTimeout: 300000 // 5 minutes for ZK verification
+    };
   }
 
   /**
@@ -36,6 +40,7 @@ class XPVerifierService {
   async initialize() {
     try {
       const rpcUrl = process.env.ABSTRACT_RPC_URL;
+      const fallbackRPC = process.env.ABSTRACT_FALLBACK_RPC || 'https://rpc.abstract.xyz';
       const xpVerifierAddress = process.env.XPVERIFIER_ADDRESS;
       const privateKey = process.env.XPVERIFIER_PRIVATE_KEY;
 
@@ -44,8 +49,57 @@ class XPVerifierService {
         return false;
       }
 
-      // Initialize provider and signer
-      this.provider = new ethers.JsonRpcProvider(rpcUrl);
+      // Initialize provider with fallback support
+      let activeRPC = rpcUrl;
+      try {
+        this.provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
+          staticNetwork: true,
+          batchMaxCount: 1
+        });
+        
+        // Test primary RPC with timeout
+        const networkPromise = this.provider.getNetwork();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('RPC timeout')), this.timeoutSettings.rpcTimeout)
+        );
+        
+        await Promise.race([networkPromise, timeoutPromise]);
+        console.log('✅ Primary RPC connection successful');
+        
+      } catch (error) {
+        console.warn('⚠️ Primary RPC failed, trying fallback...', error.message);
+        console.error('   Primary RPC error details:', {
+          message: error.message,
+          cause: error.cause?.message,
+          stack: error.stack?.split('\n').slice(0, 3).join('\n')
+        });
+        
+        try {
+          this.provider = new ethers.JsonRpcProvider(fallbackRPC, undefined, {
+            staticNetwork: true,
+            batchMaxCount: 1
+          });
+          
+          const fallbackNetworkPromise = this.provider.getNetwork();
+          const fallbackTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Fallback RPC timeout')), this.timeoutSettings.rpcTimeout)
+          );
+          
+          await Promise.race([fallbackNetworkPromise, fallbackTimeoutPromise]);
+          activeRPC = fallbackRPC;
+          console.log('✅ Fallback RPC connection successful');
+          
+        } catch (fallbackError) {
+          console.error('❌ Both RPC endpoints failed!');
+          console.error('   Fallback RPC error details:', {
+            message: fallbackError.message,
+            cause: fallbackError.cause?.message,
+            stack: fallbackError.stack?.split('\n').slice(0, 3).join('\n')
+          });
+          throw new Error('All RPC endpoints unavailable');
+        }
+      }
+
       this.signer = new ethers.Wallet(privateKey, this.provider);
       this.xpVerifierContract = new ethers.Contract(xpVerifierAddress, XPVERIFIER_ABI, this.signer);
 
@@ -55,12 +109,19 @@ class XPVerifierService {
       this.initialized = true;
       console.log('✅ XPVerifierService initialized');
       console.log(`📍 XPVerifier Contract: ${xpVerifierAddress}`);
+      console.log(`🔗 Active RPC: ${activeRPC}`);
       console.log(`🔑 Verifier Address: ${this.signer.address}`);
       console.log(`🎯 Current Threshold: ${currentThreshold.toString()}`);
+      console.log(`⏱️ RPC Timeout: ${this.timeoutSettings.rpcTimeout}ms`);
 
       return true;
     } catch (error) {
       console.error('❌ XPVerifierService initialization failed:', error.message);
+      console.error('   Error details:', {
+        message: error.message,
+        cause: error.cause?.message,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      });
       return false;
     }
   }

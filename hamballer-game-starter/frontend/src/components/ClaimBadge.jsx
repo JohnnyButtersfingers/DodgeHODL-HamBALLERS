@@ -142,6 +142,9 @@ const ClaimBadge = () => {
         try {
           console.log('🔐 Generating ZK proof for XP verification...');
           
+          // Update claiming state to show proof generation
+          setClaiming(prev => ({ ...prev, [badge.id]: 'generating_proof' }));
+          
           // Log proof attempt
           await zkLogger.logProofAttempt({
             playerAddress: address,
@@ -176,7 +179,7 @@ const ClaimBadge = () => {
              errorType: classifyProofError(proofError)
            });
           
-          // Handle specific error types with appropriate UX
+          // Handle specific error types with appropriate UX and custom messages
           if (proofError.message.includes('nullifier')) {
             showNullifierReused(proofError.nullifier || 'unknown');
             return;
@@ -184,7 +187,10 @@ const ClaimBadge = () => {
             showProofTimeout();
             return;
           } else if (proofError.message.includes('invalid')) {
-            showInvalidProof(proofError.message);
+            showInvalidProof(`Invalid proof: ${proofError.message}. Retry with updated XP data.`);
+            return;
+          } else if (proofError.message.includes('network') || proofError.message.includes('connection')) {
+            showNetworkError({ message: `Network error during proof generation: ${proofError.message}` });
             return;
           }
           
@@ -197,6 +203,8 @@ const ClaimBadge = () => {
       }
 
       // Step 2: Submit to backend for badge minting
+      setClaiming(prev => ({ ...prev, [badge.id]: 'minting' }));
+      
       const response = await apiFetch('/api/badges/claim', {
         method: 'POST',
         headers: {
@@ -499,9 +507,16 @@ const ClaimBadge = () => {
                     <button
                       onClick={() => claimBadge(badge)}
                       disabled={claiming[badge.id]}
-                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus"
+                      className="mobile-button bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white rounded text-sm transition-colors mobile-focus flex items-center space-x-2"
                     >
-                      {claiming[badge.id] ? 'Claiming...' : 'Claim Badge'}
+                      {claiming[badge.id] && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      )}
+                      <span>
+                        {claiming[badge.id] === 'generating_proof' ? 'Generating Proof...' :
+                         claiming[badge.id] === 'minting' ? 'Minting Badge...' :
+                         claiming[badge.id] ? 'Claiming...' : 'Claim Badge'}
+                      </span>
                     </button>
                   </div>
                 </div>

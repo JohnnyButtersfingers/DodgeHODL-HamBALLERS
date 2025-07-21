@@ -55,6 +55,14 @@ module.exports = {
       gasPrice: parseInt(process.env.GAS_PRICE || "1000000000"),
       gas: parseInt(process.env.GAS_LIMIT || "8000000"),
     },
+    // TODO: Mainnet configuration for production deployment
+    abstractMainnet: {
+      url: process.env.MAINNET_RPC_URL || "https://api.mainnet.abs.xyz",
+      chainId: 2741,
+      accounts: [deployerPrivateKey],
+      gasPrice: parseInt(process.env.MAINNET_GAS_PRICE || "2000000000"),
+      gas: parseInt(process.env.MAINNET_GAS_LIMIT || "8000000"),
+    },
   },
   etherscan: {
     apiKey: {
@@ -72,8 +80,14 @@ module.exports = {
     ],
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
+    enabled: process.env.REPORT_GAS !== undefined || process.env.NODE_ENV === 'test',
     currency: "USD",
+    gasPrice: 20, // gwei
+    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+    outputFile: process.env.GAS_REPORT_FILE || './gas-report.txt',
+    noColors: false,
+    showMethodSig: true,
+    excludeContracts: ['Migrations'],
   },
   mocha: {
     timeout: 40000,

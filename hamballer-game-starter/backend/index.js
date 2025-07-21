@@ -127,6 +127,14 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Configure axios defaults for timeout handling
+const axios = require('axios');
+axios.defaults.timeout = 60000; // 60 seconds timeout for all HTTP requests
+axios.defaults.headers.common['User-Agent'] = 'HamBaller-Backend/1.0.0';
+
+console.log('⏱️ Axios timeout configured: 60s');
+console.log('🌐 User-Agent configured for external requests');
+
 // Health check endpoint
 app.get('/health', async (req, res) => {
   try {
