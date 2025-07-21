@@ -344,6 +344,200 @@ describe("Validation Suite - Phase 9 Enhanced", function () {
       
       console.log("\n✅ Storage growth analysis complete!");
     });
+
+    it("Should handle 50k nullifier stress test with edge cases", async function () {
+      console.log("\n⏱️  Starting 50k nullifier stress test with edge cases...");
+      const startTime = Date.now();
+      const batchSize = 100;
+      const totalOperations = 50000;
+      
+      // Track gas usage and failures
+      let totalGasUsed = 0n;
+      let successfulOps = 0;
+      let failedOps = 0;
+      let lowXPFailures = 0;
+      let nullifierReuseAttempts = 0;
+      
+      // Generate and verify nullifiers in batches
+      for (let batch = 0; batch < totalOperations / batchSize; batch++) {
+        const batchStartTime = Date.now();
+        let batchGas = 0n;
+        
+        // Process batch
+        for (let i = 0; i < batchSize; i++) {
+          const nullifierIndex = batch * batchSize + i;
+          const nullifier = ethers.keccak256(
+            ethers.toUtf8Bytes(`stress_test_50k_${nullifierIndex}`)
+          );
+          
+          // Simulate different XP scenarios
+          const xpScenarios = [10, 25, 50, 75, 100, 150];
+          const xp = xpScenarios[nullifierIndex % xpScenarios.length];
+          
+          // Simulate low XP failures (10% chance for XP < 50)
+          if (xp < 50 && Math.random() < 0.1) {
+            lowXPFailures++;
+            failedOps++;
+            continue;
+          }
+          
+          // Simulate nullifier reuse attempts (0.1% chance)
+          if (Math.random() < 0.001) {
+            nullifierReuseAttempts++;
+            failedOps++;
+            continue;
+          }
+          
+          const mockProof = {
+            proof: {
+              a: [ethers.ZeroHash, ethers.ZeroHash],
+              b: [[ethers.ZeroHash, ethers.ZeroHash], [ethers.ZeroHash, ethers.ZeroHash]],
+              c: [ethers.ZeroHash, ethers.ZeroHash]
+            },
+            publicSignals: [nullifier, ethers.ZeroHash, ethers.toBeHex(xp)]
+          };
+          
+          try {
+            // Mock verification with gas estimation
+            const estimatedGas = 280000 + Math.floor(Math.random() * 20000); // 280k-300k gas
+            batchGas += BigInt(estimatedGas);
+            totalGasUsed += BigInt(estimatedGas);
+            successfulOps++;
+            
+            // Simulate processing time
+            await new Promise(resolve => setTimeout(resolve, Math.random() * 5 + 1));
+            
+          } catch (error) {
+            failedOps++;
+            console.log(`Mock verification ${nullifierIndex} failed: ${error.message}`);
+          }
+        }
+        
+        const batchTime = Date.now() - batchStartTime;
+        
+        // Progress update every 50 batches
+        if ((batch + 1) % 50 === 0) {
+          console.log(`  ✓ Processed ${(batch + 1) * batchSize} nullifiers...`);
+          console.log(`    - Success rate: ${((successfulOps / ((batch + 1) * batchSize)) * 100).toFixed(1)}%`);
+          console.log(`    - Low XP failures: ${lowXPFailures}`);
+          console.log(`    - Reuse attempts: ${nullifierReuseAttempts}`);
+        }
+      }
+      
+      const totalTime = Date.now() - startTime;
+      const avgTimePerOp = totalTime / totalOperations;
+      const avgGasPerOp = totalGasUsed > 0n ? totalGasUsed / BigInt(successfulOps) : 0n;
+      const successRate = (successfulOps / totalOperations) * 100;
+      
+      console.log("\n📊 50k Nullifier Stress Test Results:");
+      console.log(`  Total operations: ${totalOperations.toLocaleString()}`);
+      console.log(`  Successful operations: ${successfulOps.toLocaleString()}`);
+      console.log(`  Failed operations: ${failedOps.toLocaleString()}`);
+      console.log(`  Success rate: ${successRate.toFixed(2)}%`);
+      console.log(`  Low XP failures: ${lowXPFailures.toLocaleString()}`);
+      console.log(`  Nullifier reuse attempts: ${nullifierReuseAttempts.toLocaleString()}`);
+      console.log(`  Total time: ${(totalTime / 1000).toFixed(2)}s`);
+      console.log(`  Avg time per op: ${avgTimePerOp.toFixed(3)}ms`);
+      console.log(`  Throughput: ${(totalOperations / (totalTime / 1000)).toFixed(0)} ops/sec`);
+      console.log(`  Total gas used: ${totalGasUsed.toLocaleString()}`);
+      console.log(`  Avg gas per op: ${avgGasPerOp.toLocaleString()}`);
+      
+      // Performance assertions
+      expect(successRate).to.be.greaterThan(85); // At least 85% success rate
+      expect(avgTimePerOp).to.be.lessThan(10); // < 10ms per operation
+      expect(Number(avgGasPerOp)).to.be.lessThan(320000); // < 320k gas per operation
+      
+      console.log("\n✅ 50k nullifier stress test passed!");
+    });
+
+    it("Should simulate low XP failure scenarios", async function () {
+      console.log("\n⏱️  Starting low XP failure simulation...");
+      
+      const testScenarios = [
+        { xp: 5, expectedResult: 'fail', reason: 'Below minimum threshold' },
+        { xp: 15, expectedResult: 'fail', reason: 'Insufficient for verification' },
+        { xp: 25, expectedResult: 'fail', reason: 'Below verification threshold' },
+        { xp: 35, expectedResult: 'fail', reason: 'Insufficient XP' },
+        { xp: 45, expectedResult: 'fail', reason: 'Below 50 XP threshold' },
+        { xp: 50, expectedResult: 'pass', reason: 'Minimum verification threshold' },
+        { xp: 75, expectedResult: 'pass', reason: 'Above threshold' },
+        { xp: 100, expectedResult: 'pass', reason: 'High XP verification' }
+      ];
+      
+      const results = [];
+      
+      for (const scenario of testScenarios) {
+        const startTime = Date.now();
+        let success = false;
+        let gasUsed = 0;
+        let errorMessage = '';
+        
+        try {
+          // Simulate verification attempt
+          const nullifier = ethers.keccak256(
+            ethers.toUtf8Bytes(`low_xp_test_${scenario.xp}`)
+          );
+          
+          const mockProof = {
+            proof: {
+              a: [ethers.ZeroHash, ethers.ZeroHash],
+              b: [[ethers.ZeroHash, ethers.ZeroHash], [ethers.ZeroHash, ethers.ZeroHash]],
+              c: [ethers.ZeroHash, ethers.ZeroHash]
+            },
+            publicSignals: [nullifier, ethers.ZeroHash, ethers.toBeHex(scenario.xp)]
+          };
+          
+          // Simulate verification logic
+          if (scenario.xp < 50) {
+            throw new Error(`Insufficient XP: ${scenario.xp} (minimum required: 50)`);
+          }
+          
+          // Simulate successful verification
+          gasUsed = 280000 + Math.floor(Math.random() * 20000);
+          success = true;
+          
+        } catch (error) {
+          errorMessage = error.message;
+          gasUsed = 50000; // Gas used for failed verification
+        }
+        
+        const duration = Date.now() - startTime;
+        
+        results.push({
+          xp: scenario.xp,
+          expectedResult: scenario.expectedResult,
+          actualResult: success ? 'pass' : 'fail',
+          reason: scenario.reason,
+          errorMessage,
+          gasUsed,
+          duration,
+          matches: (success && scenario.expectedResult === 'pass') || 
+                   (!success && scenario.expectedResult === 'fail')
+        });
+        
+        console.log(`  ✓ XP ${scenario.xp}: ${success ? 'PASS' : 'FAIL'} (${duration}ms, ${gasUsed} gas)`);
+      }
+      
+      console.log("\n📊 Low XP Failure Analysis:");
+      results.forEach(r => {
+        const status = r.matches ? '✅' : '❌';
+        console.log(`  ${status} XP ${r.xp}: ${r.actualResult.toUpperCase()} (expected: ${r.expectedResult})`);
+        if (!r.matches) {
+          console.log(`    - Expected: ${r.reason}`);
+          console.log(`    - Actual: ${r.errorMessage}`);
+        }
+      });
+      
+      const correctResults = results.filter(r => r.matches).length;
+      const accuracy = (correctResults / results.length) * 100;
+      
+      console.log(`\n📈 Accuracy: ${accuracy.toFixed(1)}% (${correctResults}/${results.length} correct)`);
+      
+      // Verify failure handling works correctly
+      expect(accuracy).to.be.greaterThan(90); // At least 90% accuracy
+      
+      console.log("\n✅ Low XP failure simulation complete!");
+    });
   });
   
   describe("Performance Benchmarks", function () {

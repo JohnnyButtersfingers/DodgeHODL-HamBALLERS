@@ -280,6 +280,10 @@ const ClaimBadge = () => {
     setRetrying(prev => ({ ...prev, [badge.id]: true }));
     
     try {
+      // Calculate exponential backoff delay
+      const backoffDelay = Math.min(1000 * Math.pow(2, badge.retryCount || 0), 30000);
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      
       const response = await apiFetch('/api/badges/retry', {
         method: 'POST',
         headers: {
@@ -301,18 +305,40 @@ const ClaimBadge = () => {
           // Remove from failed badges
           setFailedBadges(prev => prev.filter(b => b.id !== badge.id));
           console.log('Badge retry successful:', result.txHash);
+          
+          // Show success toast
+          console.log('✅ Badge retry successful!');
         } else {
           throw new Error(result.error || 'Retry failed');
         }
       } else {
-        throw new Error('Retry request failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Retry request failed');
       }
     } catch (error) {
       console.error('Error retrying badge claim:', error);
-      // Update retry count
+      
+      // Handle specific error types
+      if (error.message.includes('gas')) {
+        showInsufficientGas('Unknown', 'Unknown');
+      } else if (error.message.includes('network') || error.message.includes('connection')) {
+        showNetworkError(error);
+      } else if (error.message.includes('invalid')) {
+        showInvalidProof(`Invalid proof: Retry with updated XP data`);
+      } else {
+        showInvalidProof(error.message);
+      }
+      
+      // Update retry count with exponential backoff info
       setFailedBadges(prev => prev.map(b => 
         b.id === badge.id 
-          ? { ...b, retryCount: (b.retryCount || 0) + 1, failureReason: error.message }
+          ? { 
+              ...b, 
+              retryCount: (b.retryCount || 0) + 1, 
+              failureReason: error.message,
+              lastRetryAt: new Date().toISOString(),
+              nextRetryDelay: Math.min(1000 * Math.pow(2, (b.retryCount || 0) + 1), 30000)
+            }
           : b
       ));
     } finally {
