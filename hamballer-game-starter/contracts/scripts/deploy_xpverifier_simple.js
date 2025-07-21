@@ -3,8 +3,8 @@ const fs = require("fs");
 const path = require("path");
 
 async function main() {
-  console.log("🚀 Deploying XPVerifier Contract...");
-  console.log("===================================");
+  console.log("🚀 Deploying XPVerifierSimple Contract...");
+  console.log("==========================================");
 
   // Get the deployer account
   const [deployer] = await ethers.getSigners();
@@ -16,17 +16,18 @@ async function main() {
 
   // Check if we have enough balance
   if (balance < ethers.parseEther("0.01")) {
-    console.warn("⚠️  Low balance detected. Deployment may fail.");
+    console.warn("⚠️  Low balance detected. You may need more ETH from the faucet.");
+    console.log("🚰 Get test ETH from: https://faucet.testnet.abs.xyz");
   }
 
   try {
-    // Deploy XPVerifier contract
-    console.log("\n🔐 Deploying XPVerifier contract...");
+    // Deploy XPVerifierSimple contract
+    console.log("\n🔐 Deploying XPVerifierSimple contract...");
     
-    const XPVerifier = await ethers.getContractFactory("XPVerifier");
+    const XPVerifierSimple = await ethers.getContractFactory("XPVerifierSimple");
     
     // Estimate deployment gas
-    const deploymentData = XPVerifier.getDeployTransaction();
+    const deploymentData = XPVerifierSimple.getDeployTransaction();
     const estimatedGas = await ethers.provider.estimateGas(deploymentData);
     const gasPrice = await ethers.provider.getFeeData();
     
@@ -34,9 +35,8 @@ async function main() {
     console.log("💸 Gas price:", ethers.formatUnits(gasPrice.gasPrice, "gwei"), "gwei");
     
     // Deploy the contract
-    const xpVerifier = await XPVerifier.deploy({
+    const xpVerifier = await XPVerifierSimple.deploy({
       gasLimit: estimatedGas + BigInt(50000), // Add buffer
-      gasPrice: gasPrice.gasPrice
     });
 
     console.log("⏳ Deployment transaction sent:", xpVerifier.deploymentTransaction().hash);
@@ -46,7 +46,7 @@ async function main() {
     await xpVerifier.waitForDeployment();
     const xpVerifierAddress = await xpVerifier.getAddress();
 
-    console.log("✅ XPVerifier deployed to:", xpVerifierAddress);
+    console.log("✅ XPVerifierSimple deployed to:", xpVerifierAddress);
 
     // Verify the deployment
     console.log("\n🔍 Verifying deployment...");
@@ -64,6 +64,7 @@ async function main() {
     const deploymentInfo = {
       network: (await ethers.provider.getNetwork()).name,
       chainId: (await ethers.provider.getNetwork()).chainId.toString(),
+      contractName: "XPVerifierSimple",
       contractAddress: xpVerifierAddress,
       deployerAddress: deployerAddress,
       blockNumber: xpVerifier.deploymentTransaction().blockNumber,
@@ -81,7 +82,7 @@ async function main() {
       fs.mkdirSync(deploymentsDir, { recursive: true });
     }
 
-    const deploymentFile = path.join(deploymentsDir, "xpverifier_deployment.json");
+    const deploymentFile = path.join(deploymentsDir, "xpverifier_simple_deployment.json");
     fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
 
     console.log("💾 Deployment info saved to:", deploymentFile);
@@ -104,20 +105,12 @@ XPVERIFIER_PRIVATE_KEY=your_private_key_here
 # Network Configuration
 ABSTRACT_RPC_URL=https://api.testnet.abs.xyz
 NETWORK_NAME=abstract-testnet
+CHAIN_ID=11124
 `;
 
     const envFile = path.join(__dirname, "../../backend/.env.xpverifier");
     fs.writeFileSync(envFile, envTemplate.trim());
     console.log("📄 Environment template saved to:", envFile);
-
-    // Initialize gamma_abc array
-    console.log("\n🔧 Initializing verification key...");
-    
-    const initTx = await xpVerifier.initializeGammaAbc();
-    console.log("⏳ Initialization transaction sent:", initTx.hash);
-    
-    await initTx.wait(2);
-    console.log("✅ Verification key initialized");
 
     // Test a basic nullifier check
     console.log("\n🧪 Testing contract functionality...");
@@ -127,8 +120,45 @@ NETWORK_NAME=abstract-testnet
     
     console.log("✅ Nullifier check test:", !isUsed ? "PASSED" : "FAILED");
 
-    console.log("\n🎉 XPVerifier Deployment Complete!");
-    console.log("==================================");
+    // Test proof verification with dummy data
+    console.log("🧪 Testing proof verification...");
+    
+    const testProof = [
+      "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "0x2345678901bcdef02345678901bcdef02345678901bcdef02345678901bcdef0",
+      "0x3456789012cdef013456789012cdef013456789012cdef013456789012cdef01",
+      "0x456789023def0124456789023def0124456789023def0124456789023def0124",
+      "0x56789034ef012345567890234ef012345678903def012345678903def012345",
+      "0x6789045f0123456789045f0123456789045f0123456789045f01234567890456",
+      "0x789056012345678901234567890123456789012345678901234567890123456",
+      "0x89067123456789012345678901234567890123456789012345678901234567"
+    ];
+    
+    const testCommitment = ethers.keccak256(ethers.toUtf8Bytes("test_commitment"));
+    const testXP = 75;
+    
+    try {
+      const verifyTx = await xpVerifier.verifyXPProof(
+        testNullifier,
+        testCommitment,
+        testProof,
+        testXP,
+        50
+      );
+      
+      await verifyTx.wait();
+      console.log("✅ Test proof verification: PASSED");
+      
+      // Check that nullifier is now used
+      const isNowUsed = await xpVerifier.isNullifierUsed(testNullifier);
+      console.log("✅ Nullifier marking test:", isNowUsed ? "PASSED" : "FAILED");
+      
+    } catch (error) {
+      console.log("❌ Test proof verification failed:", error.message);
+    }
+
+    console.log("\n🎉 XPVerifierSimple Deployment Complete!");
+    console.log("========================================");
     console.log(`📍 Contract Address: ${xpVerifierAddress}`);
     console.log(`🔗 Explorer: https://explorer.testnet.abs.xyz/address/${xpVerifierAddress}`);
     console.log("🚀 Ready for ZK proof verification!");
@@ -144,6 +174,7 @@ NETWORK_NAME=abstract-testnet
     
     if (error.code === 'INSUFFICIENT_FUNDS') {
       console.error("💸 Insufficient funds for deployment. Please add more ETH to your account.");
+      console.log("🚰 Get test ETH from: https://faucet.testnet.abs.xyz");
     } else if (error.code === 'NONCE_EXPIRED') {
       console.error("🔄 Nonce expired. Please try again.");
     } else if (error.message.includes('gas')) {

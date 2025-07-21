@@ -2,13 +2,16 @@ const { ethers } = require('ethers');
 const { db } = require('../config/database');
 const { zkProofGenerator } = require('./zkProofGenerator');
 
-// XPVerifier contract ABI
+// XPVerifierSimple contract ABI
 const XPVERIFIER_ABI = [
-  'function verifyXPProof(bytes32 nullifier, bytes32 commitment, uint256[8] calldata proof, uint256 claimedXP, uint256 threshold) external returns (bool)',
+  'function verifyXPProof(bytes32 nullifier, bytes32 commitment, uint256[8] calldata proof, uint256 claimedXP, uint256 currentThreshold) external returns (bool)',
   'function isNullifierUsed(bytes32 nullifier) external view returns (bool)',
   'function getVerificationResult(address player, bytes32 nullifier) external view returns (bool verified, uint256 timestamp)',
   'function updateThreshold(uint256 newThreshold) external',
   'function getThreshold() external view returns (uint256)',
+  'function owner() external view returns (address)',
+  'function transferOwnership(address newOwner) external',
+  'function markNullifierUsed(bytes32 nullifier) external',
   'event XPProofVerified(address indexed player, bytes32 indexed nullifier, uint256 claimedXP, uint256 threshold, bool verified)',
   'event ThresholdUpdated(uint256 oldThreshold, uint256 newThreshold)'
 ];
