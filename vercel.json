@@ -9,10 +9,5 @@
       "destination": "/index.html"
     }
   ],
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 30
-    }
-  },
   "regions": ["iad1"]
 }
