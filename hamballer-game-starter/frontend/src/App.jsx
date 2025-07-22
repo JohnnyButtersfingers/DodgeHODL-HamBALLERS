@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { WagmiConfig, createConfig, configureChains } from 'wagmi';
 import { publicProvider } from 'wagmi/providers/public';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
-import { getDefaultWallets, RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 
 // Components
@@ -26,8 +26,9 @@ import { GameStateProvider } from './hooks/useGameState';
 import { WalletProvider } from './contexts/WalletContext';
 import { XpProvider } from './contexts/XpContext';
 
-// Network configuration
+// Network and wallet configuration
 import { abstractTestnet } from './config/networks';
+import { getWalletConnectors } from './config/wallets';
 
 // Configure chains and providers
 const { chains, publicClient, webSocketPublicClient } = configureChains(
@@ -43,12 +44,9 @@ const { chains, publicClient, webSocketPublicClient } = configureChains(
   ]
 );
 
-// Configure wallets
-const { connectors } = getDefaultWallets({
-  appName: 'HamBaller.xyz',
-  projectId: 'hamballer-dodge-hodl', // In production, use your WalletConnect project ID
-  chains,
-});
+// Configure wallets with proper project ID and Abstract Global Wallet support
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'hamballer-game-xyz-2024';
+const connectors = getWalletConnectors(chains, projectId);
 
 // Create wagmi config
 const wagmiConfig = createConfig({

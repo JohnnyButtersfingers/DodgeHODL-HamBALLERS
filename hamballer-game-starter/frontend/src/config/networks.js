@@ -1,7 +1,7 @@
 // Abstract Testnet Configuration
 export const abstractTestnet = {
-  id: 11124,
-  name: 'Abstract Testnet',
+  id: import.meta.env.VITE_CHAIN_ID ? parseInt(import.meta.env.VITE_CHAIN_ID) : 11124,
+  name: import.meta.env.VITE_CHAIN_NAME || 'Abstract Testnet',
   network: 'abstract-testnet',
   nativeCurrency: {
     decimals: 18,
@@ -10,11 +10,11 @@ export const abstractTestnet = {
   },
   rpcUrls: {
     default: {
-      http: ['https://api.testnet.abs.xyz'],
+      http: [import.meta.env.VITE_RPC_URL || 'https://api.testnet.abs.xyz'],
       webSocket: ['wss://api.testnet.abs.xyz'],
     },
     public: {
-      http: ['https://api.testnet.abs.xyz'],
+      http: [import.meta.env.VITE_RPC_URL || 'https://api.testnet.abs.xyz'],
       webSocket: ['wss://api.testnet.abs.xyz'],
     },
   },
@@ -29,11 +29,11 @@ export const abstractTestnet = {
 
 // Contract addresses (these will be set after deployment)
 export const CONTRACT_ADDRESSES = {
-  DBP_TOKEN: process.env.VITE_DBP_TOKEN_ADDRESS || '',
-  BOOST_NFT: process.env.VITE_BOOST_NFT_ADDRESS || '',
-  HODL_MANAGER: process.env.VITE_HODL_MANAGER_ADDRESS || '',
-  XP_BADGE: process.env.VITE_XPBADGE_ADDRESS || '',
-  XP_VERIFIER: process.env.VITE_XPVERIFIER_ADDRESS || '',
+  DBP_TOKEN: import.meta.env.VITE_DBP_TOKEN_ADDRESS || '',
+  BOOST_NFT: import.meta.env.VITE_BOOST_NFT_ADDRESS || '',
+  HODL_MANAGER: import.meta.env.VITE_HODL_MANAGER_ADDRESS || '',
+  XP_BADGE: import.meta.env.VITE_XPBADGE_ADDRESS || '',
+  XP_VERIFIER: import.meta.env.VITE_XPVERIFIER_ADDRESS || '',
 };
 
 // Contract ABIs (simplified versions for frontend use)
