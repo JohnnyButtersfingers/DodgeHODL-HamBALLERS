@@ -1,3 +1,6 @@
+/* Import mobile-specific optimizations */
+@import './styles/mobile-optimization.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,30 +11,123 @@
   }
   
   body {
-    @apply bg-game-dark text-white;
+    @apply bg-retro-black text-cloud-white;
   }
 }
 
 @layer components {
+  /* HamBallers.xyz Component System */
+  
+  /* Buttons */
   .btn-primary {
-    @apply bg-game-primary text-game-dark px-6 py-3 rounded-lg font-semibold hover:bg-opacity-90 transition-all duration-200 shadow-lg hover:shadow-xl;
+    @apply bg-arcade-blue text-cloud-white px-6 py-3 rounded-2xl font-semibold hover:bg-opacity-90 transition-all duration-200 shadow-lg hover:shadow-glow-blue focus:ring-2 focus:ring-arcade-blue focus:ring-opacity-50;
+    min-height: 44px; /* Mobile touch target */
   }
   
   .btn-secondary {
-    @apply bg-game-secondary text-white px-6 py-3 rounded-lg font-semibold hover:bg-opacity-90 transition-all duration-200;
+    @apply bg-cheese-orange text-cloud-white px-6 py-3 rounded-2xl font-semibold hover:bg-opacity-90 transition-all duration-200 shadow-lg hover:shadow-xl;
+    min-height: 44px;
+  }
+
+  .btn-success {
+    @apply bg-fresh-green text-retro-black px-6 py-3 rounded-2xl font-semibold hover:bg-opacity-90 transition-all duration-200 shadow-lg hover:shadow-glow;
+    min-height: 44px;
+  }
+
+  .btn-warning {
+    @apply bg-retro-red text-cloud-white px-6 py-3 rounded-2xl font-semibold hover:bg-opacity-90 transition-all duration-200 shadow-lg hover:shadow-xl;
+    min-height: 44px;
+  }
+
+  .btn-help {
+    @apply bg-neon-yellow text-retro-black px-6 py-3 rounded-2xl font-semibold hover:bg-opacity-90 transition-all duration-200 shadow-lg hover:shadow-glow-yellow;
+    min-height: 44px;
   }
   
+  /* Cards and Panels */
   .card {
-    @apply bg-game-darker rounded-xl p-6 shadow-xl border border-gray-700/50;
+    @apply bg-cloud-white rounded-2xl p-6 shadow-xl border border-soft-grey;
+  }
+
+  .panel-dark {
+    @apply bg-retro-black rounded-2xl p-6 shadow-xl border border-soft-grey/20;
   }
   
+  /* Sidebar Navigation */
+  .sidebar-nav {
+    @apply bg-retro-black text-cloud-white border-r border-soft-grey/20;
+  }
+
+  /* Game Visual Window */
+  .game-visual-window {
+    @apply bg-cloud-white rounded-2xl shadow-xl border-2 border-soft-grey p-6;
+  }
+
+  /* XP and Progress Components */
+  .xp-bar {
+    @apply bg-arcade-blue rounded-full h-3 transition-all duration-300;
+  }
+
+  .xp-bar-bg {
+    @apply bg-soft-grey/30 rounded-full h-3 overflow-hidden;
+  }
+
+  /* Input Fields */
   .input-field {
-    @apply bg-game-darker border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-game-primary focus:outline-none focus:ring-2 focus:ring-game-primary/20;
+    @apply bg-cloud-white border-2 border-soft-grey rounded-2xl px-4 py-3 text-retro-black placeholder-gray-400 focus:border-arcade-blue focus:outline-none focus:ring-2 focus:ring-arcade-blue/20;
+    min-height: 44px;
+  }
+
+  /* Typography Classes */
+  .text-logo {
+    @apply text-xl font-bold;
+    color: #FFFFFF; /* or #4F46E5 for variant */
+  }
+
+  .text-body {
+    @apply text-base font-semibold;
+    color: #FFFFFF; /* or #6B7280 for variant */
+  }
+
+  .text-label {
+    @apply text-xs font-normal text-gray-400;
+  }
+
+  /* Mobile Responsive Touch Targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Loading States */
+  .loading-spinner {
+    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-arcade-blue;
+  }
+
+  /* Badge Components */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-label font-medium;
+  }
+
+  .badge-primary {
+    @apply badge bg-arcade-blue/20 text-arcade-blue;
+  }
+
+  .badge-success {
+    @apply badge bg-fresh-green/20 text-fresh-green;
+  }
+
+  .badge-warning {
+    @apply badge bg-retro-red/20 text-retro-red;
+  }
+
+  .badge-premium {
+    @apply badge bg-purple-80s/20 text-purple-80s;
   }
 }
 
 @layer utilities {
-  /* Custom animations for enhanced UI */
+  /* Enhanced animations for HamBallers.xyz */
   @keyframes slideInFromTop {
     from {
       opacity: 0;
@@ -93,6 +189,17 @@
     to {
       opacity: 1;
       transform: scale(1);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+    }
+    50% {
+      opacity: 0.8;
+      box-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
     }
   }
 
@@ -184,14 +291,27 @@
 
   /* Focus ring enhancement for accessibility */
   .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50;
+    @apply focus:outline-none focus:ring-2 focus:ring-arcade-blue focus:ring-opacity-50;
   }
+
+  /* 8px Grid System Utilities */
+  .gap-grid-1 { gap: 8px; }
+  .gap-grid-2 { gap: 16px; }
+  .gap-grid-3 { gap: 24px; }
+  .gap-grid-4 { gap: 32px; }
+
+  .p-grid-1 { padding: 8px; }
+  .p-grid-2 { padding: 16px; }
+  .p-grid-3 { padding: 24px; }
+  .p-grid-4 { padding: 32px; }
 
   /* Reduced motion for accessibility */
   @media (prefers-reduced-motion: reduce) {
     .animate-in,
     .animate-bounce,
-    .animate-pulse {
+    .animate-pulse,
+    .animate-bounce-gentle,
+    .animate-pulse-glow {
       animation: none;
     }
 
@@ -199,6 +319,22 @@
     .transition-colors,
     .transition-transform {
       transition: none;
+    }
+  }
+
+  /* Mobile-first responsive design */
+  @media (max-width: 640px) {
+    .touch-target {
+      min-height: 48px;
+      min-width: 48px;
+    }
+    
+    .btn-primary,
+    .btn-secondary,
+    .btn-success,
+    .btn-warning,
+    .btn-help {
+      min-height: 48px;
     }
   }
 }

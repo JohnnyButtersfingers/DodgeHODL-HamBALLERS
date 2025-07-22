@@ -1,138 +1,227 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useWebSocket } from '../services/useWebSocketService';
+import { useWallet } from '../contexts/WalletContext';
 import PriceTicker from './PriceTicker';
 
 const Layout = () => {
   const location = useLocation();
   const { connected } = useWebSocket();
+  const { isConnected, address } = useWallet();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
-    { path: '/', label: 'Game', icon: '🎮' },
-    { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
-    { path: '/badges', label: 'Badges', icon: '🏅' },
-    { path: '/claim', label: 'Claim', icon: '🎁' },
-    { path: '/replay', label: 'Replays', icon: '📺' },
+    { path: '/', label: 'Game', icon: '🎮', description: 'Main gameplay' },
+    { path: '/dashboard', label: 'Dashboard', icon: '📊', description: 'Player stats' },
+    { path: '/leaderboard', label: 'Leaderboard', icon: '🏆', description: 'Top players' },
+    { path: '/badges', label: 'Badges', icon: '🏅', description: 'Achievements' },
+    { path: '/claim', label: 'Claim', icon: '🎁', description: 'Rewards' },
+    { path: '/replay', label: 'Replays', icon: '📺', description: 'Game history' },
   ];
 
+  const isActive = (path) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
-      {/* Header */}
-      <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-                🏀 HamBaller.xyz
-              </div>
-            </Link>
+    <div className="min-h-screen bg-gradient-to-br from-retro-black via-game-darker to-retro-black">
+      {/* Mobile Menu Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-retro-black/80 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-            {/* Navigation */}
-            <nav className="hidden md:flex space-x-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    location.pathname === item.path
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-                  }`}
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              ))}
-            </nav>
-
-            {/* Wallet Connect & Status */}
-            <div className="flex items-center space-x-4">
-              {/* WebSocket Status */}
-              <div className="flex items-center space-x-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    connected ? 'bg-green-400' : 'bg-red-400'
-                  }`}
-                />
-                <span className="text-xs text-gray-400">
-                  {connected ? 'Live' : 'Offline'}
+      {/* Sidebar Navigation */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 sidebar-nav transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:static lg:inset-0`}>
+        <div className="flex flex-col h-full">
+          {/* Logo Section */}
+          <div className="flex items-center justify-between p-6 border-b border-soft-grey/20">
+            <Link to="/" className="flex items-center space-x-3" onClick={() => setSidebarOpen(false)}>
+              <div className="text-logo text-2xl font-bold">
+                <span className="bg-gradient-to-r from-fresh-green to-arcade-blue bg-clip-text text-transparent">
+                  🏀 HamBaller
                 </span>
               </div>
-
-              {/* Price Ticker */}
-              <PriceTicker />
-
-              {/* Connect Button */}
-              <ConnectButton />
-            </div>
+            </Link>
+            <button 
+              className="lg:hidden touch-target text-cloud-white hover:text-fresh-green"
+              onClick={() => setSidebarOpen(false)}
+            >
+              ✕
+            </button>
           </div>
-        </div>
 
-        {/* Mobile Navigation */}
-        <div className="md:hidden border-t border-gray-800">
-          <div className="px-2 pt-2 pb-3 space-y-1">
+          {/* Navigation Items */}
+          <nav className="flex-1 px-4 py-6 space-y-2">
             {navItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  location.pathname === item.path
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all duration-200 touch-target group ${
+                  isActive(item.path)
+                    ? 'bg-arcade-blue text-cloud-white shadow-glow-blue'
+                    : 'text-gray-300 hover:text-cloud-white hover:bg-soft-grey/10'
                 }`}
               >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
+                <span className="text-xl">{item.icon}</span>
+                <div className="flex-1">
+                  <div className="text-body font-semibold">{item.label}</div>
+                  <div className="text-label text-gray-400 group-hover:text-gray-300">
+                    {item.description}
+                  </div>
+                </div>
               </Link>
             ))}
+          </nav>
+
+          {/* Wallet & Status Section */}
+          <div className="p-4 border-t border-soft-grey/20 space-y-4">
+            {/* WebSocket Status */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-retro-black/50">
+              <div className="flex items-center space-x-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    connected ? 'bg-fresh-green animate-pulse-glow' : 'bg-retro-red'
+                  }`}
+                />
+                <span className="text-label text-gray-400">
+                  Network {connected ? 'Live' : 'Offline'}
+                </span>
+              </div>
+            </div>
+
+            {/* Price Ticker */}
+            <div className="p-3 rounded-2xl bg-retro-black/50">
+              <PriceTicker />
+            </div>
+
+            {/* Wallet Connect */}
+            <div className="flex flex-col space-y-2">
+              <ConnectButton />
+              {isConnected && address && (
+                <div className="text-label text-gray-400 truncate">
+                  {`${address.slice(0, 6)}...${address.slice(-4)}`}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Outlet />
-      </main>
+      {/* Main Content Area */}
+      <div className="lg:pl-64">
+        {/* Top Header (Mobile) */}
+        <header className="lg:hidden bg-retro-black/90 backdrop-blur-sm border-b border-soft-grey/20 sticky top-0 z-30">
+          <div className="flex items-center justify-between px-4 h-16">
+            <button 
+              className="touch-target text-cloud-white hover:text-fresh-green"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            
+            <Link to="/" className="text-logo font-bold">
+              <span className="bg-gradient-to-r from-fresh-green to-arcade-blue bg-clip-text text-transparent">
+                🏀 HamBaller
+              </span>
+            </Link>
 
-      {/* Footer */}
-      <footer className="bg-gray-900/80 backdrop-blur-sm border-t border-gray-800 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-4">HamBaller.xyz</h3>
-              <p className="text-gray-400 text-sm">
-                The ultimate Web3 DODGE & HODL game. Make your moves, time your holds, earn DBP tokens.
-              </p>
+            <div className="flex items-center space-x-2">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  connected ? 'bg-fresh-green' : 'bg-retro-red'
+                }`}
+              />
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Game Features</h3>
-              <ul className="text-gray-400 text-sm space-y-2">
-                <li>• Real-time price action</li>
-                <li>• On-chain rewards</li>
-                <li>• NFT boosts</li>
-                <li>• Live replays</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Network</h3>
-              <div className="text-gray-400 text-sm">
-                <p>Abstract Testnet</p>
-                <p className="mt-2">
-                  Status: <span className={connected ? 'text-green-400' : 'text-red-400'}>
-                    {connected ? 'Connected' : 'Disconnected'}
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="min-h-screen">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <Outlet />
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-retro-black/80 backdrop-blur-sm border-t border-soft-grey/20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="space-y-4">
+                <h3 className="text-logo font-bold text-cloud-white">HamBaller.xyz</h3>
+                <p className="text-body text-gray-400">
+                  The ultimate Web3 DODGE & HODL game. Master volatile markets, earn DBP tokens, unlock exclusive badges.
+                </p>
+                <div className="flex items-center space-x-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      connected ? 'bg-fresh-green animate-pulse-glow' : 'bg-retro-red'
+                    }`}
+                  />
+                  <span className="text-label text-gray-400">
+                    Abstract Testnet {connected ? 'Connected' : 'Disconnected'}
                   </span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-logo font-bold text-cloud-white">Game Features</h3>
+                <ul className="space-y-2 text-body text-gray-400">
+                  <li className="flex items-center space-x-2">
+                    <span className="text-fresh-green">•</span>
+                    <span>Real-time price action gameplay</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <span className="text-arcade-blue">•</span>
+                    <span>On-chain rewards & NFT boosts</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <span className="text-neon-yellow">•</span>
+                    <span>XP system & achievement badges</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <span className="text-cheese-orange">•</span>
+                    <span>Live game replays & analysis</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-logo font-bold text-cloud-white">Community</h3>
+                <div className="flex space-x-4">
+                  <a href="#" className="touch-target text-gray-400 hover:text-arcade-blue transition-colors">
+                    <span className="text-2xl">🐦</span>
+                  </a>
+                  <a href="#" className="touch-target text-gray-400 hover:text-fresh-green transition-colors">
+                    <span className="text-2xl">💬</span>
+                  </a>
+                  <a href="#" className="touch-target text-gray-400 hover:text-neon-yellow transition-colors">
+                    <span className="text-2xl">📖</span>
+                  </a>
+                </div>
+                <p className="text-label text-gray-400">
+                  Join our community for updates, strategies, and exclusive events.
                 </p>
               </div>
             </div>
+
+            <div className="border-t border-soft-grey/20 mt-8 pt-8 text-center">
+              <p className="text-label text-gray-400">
+                © 2024 HamBaller.xyz - Built on Abstract • Phase 10.2A Player-Facing UI
+              </p>
+            </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400 text-sm">
-            © 2024 HamBaller.xyz - Built on Abstract
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 };

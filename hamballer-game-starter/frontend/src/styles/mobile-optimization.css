@@ -1,0 +1,384 @@
+/* Mobile-First Optimization for HamBallers.xyz */
+
+/* Progressive Loading Indicators */
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #E4E4E7 25%, #F4F4F5 37%, #E4E4E7 63%);
+  background-size: 400px 100%;
+  animation: skeleton-loading 1.4s ease-in-out infinite;
+}
+
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 20%,
+    rgba(255, 255, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Enhanced Touch Targets for Mobile */
+@media (max-width: 768px) {
+  .touch-target,
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-warning,
+  .btn-help {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 12px 16px;
+  }
+
+  /* Navigation optimizations */
+  .sidebar-nav {
+    width: 280px;
+  }
+
+  /* Card spacing adjustments */
+  .card,
+  .panel-dark,
+  .game-visual-window {
+    margin: 8px;
+    padding: 16px;
+  }
+
+  /* Text size adjustments */
+  .text-logo {
+    font-size: 18px;
+    line-height: 22px;
+  }
+
+  .text-body {
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .text-label {
+    font-size: 11px;
+    line-height: 14px;
+  }
+}
+
+/* Safe Area Handling for Modern Mobile Devices */
+@supports (padding: max(0px)) {
+  .mobile-safe-top {
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+
+  .mobile-safe-bottom {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .mobile-safe-left {
+    padding-left: max(16px, env(safe-area-inset-left));
+  }
+
+  .mobile-safe-right {
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+}
+
+/* Improved Tap Highlights */
+.touch-target:active,
+.btn-primary:active,
+.btn-secondary:active,
+.btn-success:active,
+.btn-warning:active,
+.btn-help:active {
+  transform: scale(0.98);
+  opacity: 0.8;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile Navigation Improvements */
+@media (max-width: 1024px) {
+  .sidebar-nav {
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Improved mobile overlay */
+  .mobile-overlay {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+/* Enhanced Scrolling on Mobile */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Progressive Enhancement for Slow Connections */
+@media (prefers-reduced-data: reduce) {
+  .animate-in,
+  .animate-bounce,
+  .animate-pulse,
+  .animate-bounce-gentle,
+  .animate-pulse-glow {
+    animation: none;
+  }
+
+  .loading-shimmer,
+  .skeleton {
+    animation: none;
+    background: #E4E4E7;
+  }
+}
+
+/* Dark Mode Mobile Optimizations */
+@media (prefers-color-scheme: dark) and (max-width: 768px) {
+  .game-visual-window {
+    background: #18181B;
+    color: #FFFFFF;
+    border-color: rgba(228, 228, 231, 0.2);
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, #27272A 25%, #3F3F46 37%, #27272A 63%);
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-warning,
+  .btn-help {
+    border: 2px solid currentColor;
+  }
+
+  .card,
+  .panel-dark,
+  .game-visual-window {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Landscape Mobile Optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+  .mobile-landscape-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .mobile-landscape-hide {
+    display: none;
+  }
+
+  /* Reduce vertical padding in landscape */
+  .py-8 {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .py-6 {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+}
+
+/* Connection State Indicators */
+.connection-indicator {
+  position: relative;
+}
+
+.connection-indicator::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22C55E;
+  border: 2px solid #FFFFFF;
+  animation: pulse 2s infinite;
+}
+
+.connection-indicator.offline::after {
+  background: #FF4B4B;
+  animation: none;
+}
+
+/* Mobile Performance Optimizations */
+.mobile-optimized {
+  contain: layout style paint;
+  will-change: transform;
+}
+
+.mobile-optimized img {
+  loading: lazy;
+  decoding: async;
+}
+
+/* Gesture Handling */
+.swipe-area {
+  touch-action: pan-x;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pinch-zoom {
+  touch-action: pinch-zoom;
+}
+
+/* Mobile Focus Management */
+@media (max-width: 768px) {
+  .focus-trap {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+  }
+
+  /* Improved modal handling */
+  .mobile-modal {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 24px 24px 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+
+/* Loading States for Mobile */
+.mobile-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.mobile-loading-text {
+  margin-top: 16px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Error States */
+.mobile-error {
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.mobile-error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+/* Success States */
+.mobile-success {
+  background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+  color: white;
+  padding: 16px;
+  border-radius: 16px;
+  margin: 8px;
+}
+
+/* Notification Positioning for Mobile */
+@media (max-width: 768px) {
+  .mobile-notifications {
+    position: fixed;
+    top: env(safe-area-inset-top, 20px);
+    left: 16px;
+    right: 16px;
+    z-index: 9999;
+  }
+
+  .mobile-notification {
+    margin-bottom: 8px;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Accessibility Improvements for Mobile */
+@media (max-width: 768px) {
+  .sr-only-mobile {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .focus-visible-mobile {
+    outline: 2px solid #3B82F6;
+    outline-offset: 2px;
+  }
+}
+
+/* Performance Monitoring Classes */
+.perf-critical {
+  contain: strict;
+  height: auto;
+}
+
+.perf-optimized {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Mobile-Specific Animations */
+@media (max-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .mobile-slide-up {
+    animation: mobileSlideUp 0.3s ease-out;
+  }
+
+  @keyframes mobileSlideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .mobile-fade-in {
+    animation: mobileFadeIn 0.2s ease-in;
+  }
+
+  @keyframes mobileFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
