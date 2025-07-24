@@ -1,0 +1,13 @@
+{
+  "buildCommand": "cd hamballer-game-starter/frontend && npm install && npm run build",
+  "outputDirectory": "hamballer-game-starter/frontend/dist",
+  "installCommand": "cd hamballer-game-starter/frontend && npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "regions": ["iad1"]
+}
