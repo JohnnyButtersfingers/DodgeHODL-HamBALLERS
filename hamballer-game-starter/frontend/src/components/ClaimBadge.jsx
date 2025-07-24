@@ -421,7 +421,7 @@ const ClaimBadge = () => {
             })}
           </div>
         </div>
-      )}
+      </motion.div>
 
       {/* Failed Badges */}
       {failedBadges.length > 0 && (

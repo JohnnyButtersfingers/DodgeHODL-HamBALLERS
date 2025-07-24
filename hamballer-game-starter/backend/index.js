@@ -20,6 +20,7 @@ require('dotenv').config();
 
 // Database and blockchain imports
 const { db, contracts } = require('./config/database');
+const { config, validation, printConfigurationStatus } = require('./config/environment');
 
 const { listenRunCompleted } = require('./listeners/runCompletedListener');
 const { retryQueue } = require('./retryQueue');

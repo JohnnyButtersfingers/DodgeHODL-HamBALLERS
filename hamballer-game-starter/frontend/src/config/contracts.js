@@ -7,17 +7,8 @@
  * 3. Fallback to empty addresses
  */
 
-// Try to load contracts.json from deployment
+// Contract addresses from environment variables
 let deploymentContracts = null;
-
-try {
-  // Dynamic import of contracts.json if it exists
-  deploymentContracts = await import('../../../contracts/deployment-info.json')
-    .then(module => module.default)
-    .catch(() => null);
-} catch (error) {
-  console.log('📄 No deployment-info.json found, using environment variables');
-}
 
 // Contract addresses with priority: env vars > deployment json > empty
 export const CONTRACT_ADDRESSES = {
