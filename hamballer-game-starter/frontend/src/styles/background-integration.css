@@ -1,0 +1,262 @@
+/* =================================================================
+   BACKGROUND ASSET INTEGRATION
+   
+   This file contains CSS rules for integrating background assets
+   into the HamBaller.xyz interface. These rules will be activated
+   once background assets are provided in /public/assets/backgrounds/
+   ================================================================= */
+
+/* =================================================================
+   1. GAME INTERFACE BACKGROUND
+   ================================================================= */
+
+.game-view-background {
+  background-image: url('/assets/backgrounds/game-background.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  position: relative;
+}
+
+/* Fallback for browsers that don't support WebP */
+.game-view-background.fallback {
+  background-image: url('/assets/backgrounds/game-background.png');
+}
+
+/* Game overlay to ensure UI readability */
+.game-view-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(24, 24, 27, 0.3); /* Retro Black overlay */
+  z-index: 1;
+}
+
+.game-view-background > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* =================================================================
+   2. LANDING PAGE BACKGROUND
+   ================================================================= */
+
+.landing-hero-background {
+  background-image: url('/assets/backgrounds/landing-background.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Fallback for browsers that don't support WebP */
+.landing-hero-background.fallback {
+  background-image: url('/assets/backgrounds/landing-background.png');
+}
+
+/* Hero section gradient overlay */
+.landing-hero-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.1) 0%,   /* Arcade Blue */
+    rgba(168, 85, 247, 0.1) 100%  /* 80s Purple */
+  );
+  z-index: 1;
+}
+
+.landing-hero-background > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* =================================================================
+   3. DASHBOARD BACKGROUND
+   ================================================================= */
+
+.dashboard-background {
+  background-image: url('/assets/backgrounds/dashboard-background.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Fallback for browsers that don't support WebP */
+.dashboard-background.fallback {
+  background-image: url('/assets/backgrounds/dashboard-background.png');
+}
+
+/* Subtle overlay for dashboard readability */
+.dashboard-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(24, 24, 27, 0.6); /* Stronger overlay for data readability */
+  z-index: 1;
+}
+
+.dashboard-background > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* =================================================================
+   4. RESPONSIVE BACKGROUND HANDLING
+   ================================================================= */
+
+/* Mobile-specific backgrounds */
+@media (max-width: 768px) {
+  .mobile-optimized-background {
+    background-image: url('/assets/backgrounds/mobile-background.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: scroll; /* Better performance on mobile */
+  }
+  
+  /* Fallback for mobile */
+  .mobile-optimized-background.fallback {
+    background-image: url('/assets/backgrounds/mobile-background.png');
+  }
+  
+  /* Override desktop backgrounds on mobile if mobile version exists */
+  .game-view-background,
+  .landing-hero-background,
+  .dashboard-background {
+    background-image: url('/assets/backgrounds/mobile-background.webp');
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .game-view-background,
+  .landing-hero-background,
+  .dashboard-background {
+    background-attachment: scroll; /* Better performance on tablets */
+  }
+}
+
+/* =================================================================
+   5. PERFORMANCE OPTIMIZATIONS
+   ================================================================= */
+
+/* Preload critical background images */
+.background-preload {
+  content: url('/assets/backgrounds/game-background.webp');
+  content: url('/assets/backgrounds/landing-background.webp');
+  content: url('/assets/backgrounds/dashboard-background.webp');
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  visibility: hidden;
+}
+
+/* Lazy loading for non-critical backgrounds */
+.lazy-background {
+  background-image: none;
+  transition: background-image 0.3s ease-in-out;
+}
+
+.lazy-background.loaded {
+  background-image: var(--bg-image);
+}
+
+/* =================================================================
+   6. ACCESSIBILITY ENHANCEMENTS
+   ================================================================= */
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .game-view-background::before,
+  .landing-hero-background::before,
+  .dashboard-background::before {
+    background: rgba(24, 24, 27, 0.8); /* Stronger overlay for accessibility */
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .game-view-background,
+  .landing-hero-background,
+  .dashboard-background {
+    background-attachment: scroll;
+  }
+  
+  .lazy-background {
+    transition: none;
+  }
+}
+
+/* =================================================================
+   7. UTILITY CLASSES
+   ================================================================= */
+
+/* Background positioning utilities */
+.bg-top { background-position: top; }
+.bg-center { background-position: center; }
+.bg-bottom { background-position: bottom; }
+
+/* Background size utilities */
+.bg-cover { background-size: cover; }
+.bg-contain { background-size: contain; }
+.bg-auto { background-size: auto; }
+
+/* Background attachment utilities */
+.bg-fixed { background-attachment: fixed; }
+.bg-scroll { background-attachment: scroll; }
+
+/* =================================================================
+   8. BROWSER SUPPORT AND FALLBACKS
+   ================================================================= */
+
+/* WebP support detection and fallback */
+.no-webp .game-view-background {
+  background-image: url('/assets/backgrounds/game-background.png');
+}
+
+.no-webp .landing-hero-background {
+  background-image: url('/assets/backgrounds/landing-background.png');
+}
+
+.no-webp .dashboard-background {
+  background-image: url('/assets/backgrounds/dashboard-background.png');
+}
+
+.no-webp .mobile-optimized-background {
+  background-image: url('/assets/backgrounds/mobile-background.png');
+}
+
+/* Error handling for missing assets */
+.background-error {
+  background: linear-gradient(
+    135deg,
+    rgba(24, 24, 27, 0.9) 0%,
+    rgba(63, 63, 70, 0.9) 100%
+  );
+}
+
+.background-error::after {
+  content: 'Background asset not found';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.875rem;
+  z-index: 10;
+}
